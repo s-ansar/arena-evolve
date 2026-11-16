@@ -14,8 +14,8 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 | Networking | UDP state broadcast, latency measurements | Done |
 | Concurrency | Thread per client, simulation thread, thread-safe queues | Done |
 | Real-time | Fixed tick rate with deadline-miss and jitter statistics | Done |
-| AI | Neural-network controller evolved by a genetic algorithm | Planned |
-| AI | Parallel fitness evaluation, baseline comparison | Planned |
+| AI | Neural-network controller evolved by a genetic algorithm | Done |
+| AI | Parallel fitness evaluation, baseline comparison | Done |
 | GUI | Qt live arena view and fitness charts | Planned |
 | Platform | Hardware map and benchmarks (CPU, memory, disk, network) | Planned |
 | Platform | Ubuntu VMs with Vagrant, systemd service, hardened ssh | Planned |
@@ -41,11 +41,12 @@ Later: Qt 6, Docker, VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Gr
 arena-evolve/
 ├── src/sim/              # Simulation core: Vec2, Robot, Arena, game loops
 ├── src/net/              # Protocol, queues, sockets, server, client
-├── src/ai/               # Controllers (baseline chase bot; evolved ones later)
+├── src/ai/               # Chase bot, neural network, genetic algorithm, thread pool
+├── bench/                # Google Benchmark microbenchmarks
 ├── tests/                # GoogleTest unit tests
 ├── .github/workflows/    # CI: build and test, plus sanitizers
 ├── infra/                # Platform lab as code (VMs, Kubernetes, Slurm, storage, monitoring), coming
-├── docs/                 # plan.md, hardware map, runbooks, performance report
+├── docs/                 # plan.md, packet capture, evolved genomes, later runbooks and reports
 ├── CMakeLists.txt
 ├── CLAUDE.md             # Working rules and roadmap
 └── SKILLS.md             # Tracker: which skills are really used
@@ -77,6 +78,24 @@ On Linux, after building, start the server, then two controller clients:
 ```
 
 The server prints the winner and the tick timing after each match.
+
+## Evolve a controller
+
+These work on Linux and Windows (no sockets involved):
+
+```bash
+./build/arena_evolve 40 4 1 best.txt         # 40 generations, 4 threads, seed 1, save the best genome
+./build/arena_fitness best.txt test          # score a saved genome on the held-out start angles
+./build/arena_bot 127.0.0.1 5555 --genome docs/genomes/seed1.txt   # play an evolved genome over TCP
+```
+
+How it works:
+
+- **Network.** 8 inputs: own position and velocity, plus the opponent's position and velocity *relative* to the robot. 8 hidden neurons and 2 outputs, all `tanh`. The 2 outputs are the thrust. That's 90 weights in total, and they are the genome. There is no backpropagation: the weights are only ever evolved.
+- **Fitness.** The candidate plays the chase bot from 8 start angles, once from each side (16 matches, 20 simulated seconds each, run headless as fast as possible). A win scores 2 plus up to 1 for winning sooner, a draw scores 1, and a loss scores the fraction of the match survived. So any win beats any draw, and even a losing genome gets credit for lasting longer, which gives the search a slope to climb from the start.
+- **Genetic algorithm.** Population 64, 2 elites copied unchanged, tournament selection (3 genomes per pick), uniform crossover, and Gaussian mutation (10% of weights, σ = 0.3). One seeded `std::mt19937_64` makes every run reproducible. Elitism plus deterministic matches guarantee that the best fitness never drops (a test checks this).
+- **Parallel fitness.** A thread pool (worker threads sharing the existing `ThreadSafeQueue`) scores genomes in parallel. `parallel_for` waits on a C++20 `std::latch`. Each task writes only its own result slot, so nothing else needs a lock. A test checks that parallel and serial results are bit-for-bit identical.
+- **Overfitting check.** Training uses 8 start angles. The final results use 16 *different* angles, offset by half a step, which the genome never saw during training.
 
 ## Design decisions
 
@@ -136,6 +155,34 @@ Latency is measured with the system-wide monotonic clock on both ends, so it is 
 | Decode a 2-robot State | 54 ns |
 
 One physics step for a match takes about 10 ns of a 16.7 ms tick, so the server spends almost all of each tick asleep. The all-pairs collision check grows as N², as expected. It would only matter with hundreds of robots, and a spatial grid would fix it then. Encoding is slower than decoding because it builds the payload in a second vector and then copies it into the frame.
+
+### Neuroevolution vs the chase bot
+
+`arena_evolve 40 4 <seed>`: 40 generations of 64 genomes, about 1.2 s per run on 4 threads. Results on the 16 held-out start angles × 2 sides = 32 matches:
+
+| Controller | Wins | Draws | Losses |
+|---|---|---|---|
+| Random genome (generation 0) | 0 | 0 | 32 |
+| Chase bot vs itself | 0 | 32 | 0 |
+| **Evolved, seed 1** ([`docs/genomes/seed1.txt`](docs/genomes/seed1.txt)) | **32** | 0 | 0 |
+| Evolved, seeds 2 / 3 / 4 / 5 | 32 / 30 / 20 / 32 | 0 | 0 / 2 / 12 / 0 |
+
+- Two chase bots always draw: they meet head-on, bounce apart and repeat until time runs out. A random network drives itself out of the ring.
+- Four of the five seeds produce a controller that beats the baseline on almost every unseen start. Seed 4 reached high *training* fitness but won only 20 of 32 unseen matches. It partly memorised its 8 training openings, which is exactly what the held-out angles are there to catch. More training angles, or a fresh random set each generation, would be the next thing to try.
+- Seed 1's best training fitness went 16.0 (all draws) → 33.4 (generation 2, first wins) → 45.2 (generation 33), out of a maximum of 48.
+- Over the real TCP server (commands one tick late, positions sent as 32-bit floats), the seed 1 genome beat the networked chase bot in 3 of 3 matches.
+
+### Parallel fitness evaluation (thread pool)
+
+One generation (64 genomes × 16 matches), averaged over 3 repeats:
+
+| Threads | Time | Speed-up |
+|---|---|---|
+| 1 | 81.4 ms | 1.00× |
+| 2 | 41.7 ms | 1.95× |
+| 4 | 28.2 ms | 2.88× |
+
+The jump from 1 to 2 threads is almost perfect, because matches are independent and share no data. From 2 to 4 threads the gain shrinks: WSL is capped at 4 logical CPUs, the laptop's other work competes for them, and the last tasks in each generation leave some threads idle. This is the workload the platform phase will spread across Slurm workers for a proper scaling study.
 
 ### Profiling with `perf` (a hypothesis that turned out wrong)
 

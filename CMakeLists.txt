@@ -29,11 +29,22 @@ target_link_libraries(sim PRIVATE project_warnings)
 
 find_package(Threads REQUIRED)
 
-# Protocol, thread-safe queue, mailbox and the baseline controller. No sockets here, so this
-# part builds and is tested on Windows too.
-add_library(net_core STATIC src/net/protocol.cpp src/ai/chase.cpp)
+# Protocol, thread-safe queue and mailbox. No sockets here, so this part builds and is
+# tested on Windows too.
+add_library(net_core STATIC src/net/protocol.cpp)
 target_include_directories(net_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(net_core PUBLIC Threads::Threads PRIVATE project_warnings)
+
+# Controllers and neuroevolution: chase bot, neural network, headless matches, genetic
+# algorithm, thread pool. Portable, so evolution also runs on Windows.
+add_library(ai STATIC src/ai/chase.cpp src/ai/network.cpp src/ai/match.cpp src/ai/genetic.cpp
+                      src/ai/thread_pool.cpp)
+target_link_libraries(ai PUBLIC sim net_core PRIVATE project_warnings)
+
+add_executable(arena_evolve src/ai/evolve_main.cpp)
+target_link_libraries(arena_evolve PRIVATE ai project_warnings)
+add_executable(arena_fitness src/ai/fitness_main.cpp)
+target_link_libraries(arena_fitness PRIVATE ai project_warnings)
 
 # The server and client use raw POSIX sockets, so they are Linux only (see README).
 if(NOT WIN32)
@@ -43,7 +54,7 @@ if(NOT WIN32)
   add_executable(arena_server src/net/server_main.cpp)
   target_link_libraries(arena_server PRIVATE net project_warnings)
   add_executable(arena_bot src/net/bot_main.cpp)
-  target_link_libraries(arena_bot PRIVATE net project_warnings)
+  target_link_libraries(arena_bot PRIVATE net ai project_warnings)
   add_executable(arena_watch src/net/watch_main.cpp)
   target_link_libraries(arena_watch PRIVATE net project_warnings)
 endif()
@@ -60,17 +71,19 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(sim_tests tests/sim_test.cpp tests/arena_test.cpp)
 target_link_libraries(sim_tests PRIVATE sim project_warnings GTest::gtest_main)
-add_executable(net_core_tests tests/protocol_test.cpp tests/concurrency_test.cpp tests/chase_test.cpp
-                              tests/stream_stats_test.cpp)
+add_executable(net_core_tests tests/protocol_test.cpp tests/concurrency_test.cpp tests/stream_stats_test.cpp)
 target_link_libraries(net_core_tests PRIVATE net_core project_warnings GTest::gtest_main)
+add_executable(ai_tests tests/ai_test.cpp tests/chase_test.cpp)
+target_link_libraries(ai_tests PRIVATE ai project_warnings GTest::gtest_main)
 
 include(GoogleTest)
 gtest_discover_tests(sim_tests)
 gtest_discover_tests(net_core_tests)
+gtest_discover_tests(ai_tests)
 
 if(NOT WIN32)
   add_executable(server_tests tests/server_test.cpp)
-  target_link_libraries(server_tests PRIVATE net project_warnings GTest::gtest_main)
+  target_link_libraries(server_tests PRIVATE net ai project_warnings GTest::gtest_main)
   gtest_discover_tests(server_tests)
 endif()
 

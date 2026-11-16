@@ -23,7 +23,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Concurrency | std::thread | `src/net/server.cpp` (reader and writer thread per client) |
 | [x] | Concurrency | Mutexes and condition variables | `src/net/thread_safe_queue.hpp`, `src/net/mailbox.hpp` |
 | [ ] | Concurrency | std::atomic | |
-| [ ] | Concurrency | Thread pool | |
+| [x] | Concurrency | Thread pool | `src/ai/thread_pool.cpp` (`std::latch`, reuses `ThreadSafeQueue`); speed-up in README |
 | [x] | Concurrency | Thread-safe or lock-free queue | `src/net/thread_safe_queue.hpp` (mutex-based) |
 | [x] | Networking | TCP sockets | `src/net/socket.cpp` (raw POSIX, TCP_NODELAY, MSG_NOSIGNAL, SO_SNDTIMEO) |
 | [x] | Networking | UDP sockets | `src/net/socket.cpp` (sendto/recvfrom), `src/net/server.cpp` watcher broadcast |
@@ -34,9 +34,9 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Real-time | Fixed-timestep loop with std::chrono | `src/sim/loop.cpp` (`steady_clock`, `sleep_until`, drift-free deadlines) |
 | [x] | Real-time | Deadline-miss and jitter statistics | `src/sim/timing_stats.hpp`, `src/sim/loop.cpp`; README "Results" |
 | [x] | Real-time | Profiling with perf | README "Profiling with perf" (record, annotate, stat) |
-| [ ] | Computational intelligence | Neural network | |
-| [ ] | Computational intelligence | Genetic algorithm (neuroevolution) | |
-| [ ] | Computational intelligence | Fitness function and baseline comparison | |
+| [x] | Computational intelligence | Neural network | `src/ai/network.cpp` (8-8-2 tanh MLP, forward pass from a flat genome) |
+| [x] | Computational intelligence | Genetic algorithm (neuroevolution) | `src/ai/genetic.cpp` (tournament, uniform crossover, Gaussian mutation, elitism) |
+| [x] | Computational intelligence | Fitness function and baseline comparison | `src/ai/match.cpp`; README "Neuroevolution vs the chase bot" (held-out angles, 5 seeds) |
 | [ ] | GUI | Qt Widgets | |
 | [ ] | GUI | Signals and slots | |
 | [ ] | GUI | Model/view | |

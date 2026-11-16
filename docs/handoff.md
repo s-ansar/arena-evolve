@@ -1,4 +1,4 @@
-# Arena Evolve: handoff (2026-11-16, end of week 3)
+# Arena Evolve: handoff (2026-11-16, end of week 4)
 
 Read `CLAUDE.md`, `SKILLS.md` and `docs/plan.md` first. Rules there still apply: keep code simple, explain each step briefly, owner must be able to explain every line, never claim a skill not backed by real code.
 
@@ -10,10 +10,11 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - **Week 1 done:** `src/sim/`: `Arena`, robots with capped thrust and drag, equal-mass elastic collisions, ring-out, `winner`/`match_over`, `run_headless` and `run_realtime` (`steady_clock`, drift-free deadlines, late-tick count, `TickHook` after each tick).
 - **Week 2 done:** `src/net/`: length-prefixed big-endian binary protocol (Welcome, Command, State), `ThreadSafeQueue`, latest-value `Mailbox`, RAII POSIX `Socket` (TCP_NODELAY, MSG_NOSIGNAL, SO_REUSEADDR, 1 s SO_SNDTIMEO), `Server` (sim thread + reader and writer thread per client), `play_match` client. `src/ai/chase.cpp` baseline bot. Programs `arena_server` and `arena_bot`.
 - **Week 3 done:** `sim::TimingStats` (Welford) in `RunStats` for wake-up lateness and tick-interval jitter, printed by `arena_server`. UDP broadcast of every State to watchers (Watch message, 5 s lease, max 8, `MSG_DONTWAIT`); States carry `sent_at_ns`. `arena_watch` measures loss, reordering and latency (`StreamStats`). `bench/sim_bench.cpp` (Google Benchmark 1.9.1). perf profile and a tcpdump capture (`docs/captures/match.pcap`). All results in README "Results"; the sqrt-skipping optimisation was measured, gave nothing, and was reverted.
+- **Week 4 done:** `src/ai/` is now its own portable library `ai` (chase moved out of `net_core`; `chase_thrust` works on `sim::Arena`, `chase` on `net::State`, `arena_from_state` bridges them). `network.cpp` 8-8-2 tanh MLP, 90-weight genome, text save/load. `match.cpp` headless two-controller matches (dt 1/60, 1200 ticks), start angles, tiered fitness. `genetic.cpp` tournament + uniform crossover + Gaussian mutation + 2 elites, seeded `mt19937_64`. `thread_pool.cpp` workers on `ThreadSafeQueue`, `parallel_for` with `std::latch`. Programs `arena_evolve` (train), `arena_fitness` (score one genome; for Slurm later), `arena_bot --genome`. Seed 1 genome in `docs/genomes/seed1.txt` wins 32/32 held-out matches vs chase; 5 seeds: 32/32/30/20/32 wins. Speed-up 2.88x on 4 threads. All in README.
 - **Decision:** raw POSIX sockets, server Linux-only; reasons in README "Design decisions". Socket code is excluded on Windows in `CMakeLists.txt`.
-- **Tests:** 51 (`sim_tests`, `net_core_tests`, `server_tests` Linux-only), including an end-to-end match over TCP plus a UDP watcher, and multi-threaded queue tests.
+- **Tests:** 71 (`sim_tests`, `net_core_tests`, `ai_tests`, `server_tests` Linux-only), including an end-to-end match over TCP plus a UDP watcher, thread-pool determinism (parallel == serial fitness), and "best fitness never drops".
 - **Earlier review findings:** all 5 resolved.
-- **SKILLS.md:** 22 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
+- **SKILLS.md:** 26 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
 
 ## Environment
 - WSL2 Ubuntu 26.04 (disk `D:\wsl\Ubuntu`), capped at 4 GB / 4 CPUs by `C:\Users\hp\.wslconfig`. systemd enabled, default user `hp`.
@@ -30,8 +31,9 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - The server accepts clients one by one with no timeout and plays one match at a time.
 
 ## Next steps
-1. Week 4: neural-network controller and genetic algorithm; `run_headless` is ready for fitness evaluation; `ai::chase` is the baseline. Fitness evaluation as a separate command-line program (plan.md).
+1. Week 5: Qt live arena view (a UDP watcher, reusing `Watch`/`State`) and fitness charts, Dockerfiles for the server and the fitness worker, `/metrics` and `/health` on the server. Qt 6 is not installed yet: ask first.
 2. Run clang-format over the code (one commit), then tick it.
+3. Possible AI follow-ups: fresh random training angles each generation (seed 4 overfitted), evolve against the best previous genome (self-play).
 
 ## Ideas discussed, not yet agreed
 Skills not on the CV that would fit naturally: libFuzzer on `net::try_decode` (week 2 follow-up), an ESP32/FreeRTOS controller client, MPI for fitness evaluation in phase D4. The owner said the current scope is good; ask before adding any to `docs/plan.md`.
