@@ -31,6 +31,11 @@ jobs:
         sanitizer: [address, undefined, thread]
     steps:
       - uses: actions/checkout@v4
+      # Newer Ubuntu kernels randomise memory addresses more than ThreadSanitizer expects,
+      # which makes it crash with "unexpected memory mapping". Lowering the randomness fixes it.
+      - name: Allow ThreadSanitizer to run
+        if: matrix.sanitizer == 'thread'
+        run: sudo sysctl vm.mmap_rnd_bits=28
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE=${{ matrix.sanitizer }}
       - name: Build
