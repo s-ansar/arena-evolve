@@ -31,7 +31,8 @@ enable_testing()
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip)
+  URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE)  # Extracted files get the extraction time, so rebuilds work right (CMP0135).
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)  # Needed on Windows (MSVC runtime match).
 FetchContent_MakeAvailable(googletest)
 
