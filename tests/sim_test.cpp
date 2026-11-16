@@ -24,14 +24,21 @@ TEST(Vec2, LengthOfThreeFourIsFive) {
 TEST(Robot, MovesByVelocityTimesTimeStep) {
     Robot robot;
     robot.velocity = {2.0, -1.0};
-    sim::integrate(robot, 0.5);
+    sim::integrate(robot, sim::Seconds{0.5});
     EXPECT_DOUBLE_EQ(robot.position.x, 1.0);
     EXPECT_DOUBLE_EQ(robot.position.y, -0.5);
+}
+
+TEST(Robot, AcceptsMillisecondTimeSteps) {
+    Robot robot;
+    robot.velocity = {1.0, 0.0};
+    sim::integrate(robot, std::chrono::milliseconds{250});  // converted to 0.25 s
+    EXPECT_DOUBLE_EQ(robot.position.x, 0.25);
 }
 
 TEST(Robot, StaysPutWithZeroVelocity) {
     Robot robot;
     robot.position = {1.0, 1.0};
-    sim::integrate(robot, 1.0);
+    sim::integrate(robot, sim::Seconds{1.0});
     EXPECT_EQ(robot.position, (Vec2{1.0, 1.0}));
 }
