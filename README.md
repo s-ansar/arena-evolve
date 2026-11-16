@@ -136,3 +136,52 @@ Latency is measured with the system-wide monotonic clock on both ends, so it is 
 | Decode a 2-robot State | 54 ns |
 
 One physics step for a match takes about 10 ns of a 16.7 ms tick, so the server spends almost all of each tick asleep. The all-pairs collision check grows as N², as expected. It would only matter with hundreds of robots, and a spatial grid would fix it then. Encoding is slower than decoding because it builds the payload in a second vector and then copies it into the frame.
+
+### Profiling with `perf` (a hypothesis that turned out wrong)
+
+`perf record` on `sim_bench` (64 robots) put 99.9% of samples in `sim::step`, and `perf annotate` put about 90% on the all-pairs overlap test around the `sqrtsd` (square root) instruction. Hypothesis: most pairs are far apart, so comparing squared distances first and skipping the square root should make the step clearly faster.
+
+Measured with `perf stat` (hardware counters work inside WSL2) and Google Benchmark, 5 repetitions:
+
+| 64 robots, per step | Before | After |
+|---|---|---|
+| Time | 3391 ns | 3257 ns (−4%, inside run-to-run noise) |
+| Instructions | ≈58 400 | ≈58 380 |
+| Instructions per cycle | 3.7 | 3.9 |
+
+The hypothesis was wrong. The CPU was already running nearly 4 instructions per cycle. The "not overlapping" branch is almost always predicted correctly, so the out-of-order core never waits for the square root: it starts the next pair while the root is still being computed. `perf annotate` blames `sqrtsd` because samples land on the slow instruction and the ones just after it, not because the program is stalled there. The real cost is about 29 instructions of plain loop work per pair. The change was reverted to keep the code simple. If this ever matters (hundreds of robots), the fix is fewer pairs (a spatial grid), not a cheaper pair test.
+
+### The protocol on the wire (`tcpdump` and `tshark`)
+
+[`docs/captures/match.pcap`](docs/captures/match.pcap) is one complete match captured on loopback: two TCP controllers and one UDP watcher. Open it in Wireshark, or summarise it with `tshark`:
+
+| Traffic | Packets | Payload size |
+|---|---|---|
+| TCP connects (SYN) | 2 | |
+| Welcome, server → each client | 2 | 4 bytes |
+| State over TCP, server → clients | 312 (156 ticks × 2 clients) | 50 bytes |
+| Command, chaser → server (the passive bot sends none) | 156 | 11 bytes |
+| TCP packets with no payload (handshakes, ACKs, close) | 173 | 0 |
+| Watch over UDP, watcher → server (once a second) | 4 | 3 bytes |
+| State over UDP, server → watcher | 156 | 50 bytes |
+
+Decoding the first State byte by byte matches the documented format exactly:
+
+```
+03                  type 3 = State
+00 2f               payload length 47 = 13 + 2 robots × 17
+00 00 00 01         tick 1
+00 00 06 18 39 c1 71 19   sent_at_ns (steady_clock)
+02                  2 robots
+bf 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00  01    robot 0: x = -0.5, y = 0, vx = 0, vy = 0, in ring
+3f 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00  01    robot 1: x = +0.5, ...
+```
+
+The first Command is `02 0008 3f800000 00000000`: thrust (1.0, 0.0), the chaser driving straight at its opponent.
+
+Two things the capture shows that the code alone does not:
+
+- **UDP timing seen from outside.** UDP States leave the server every 16.669 ms on average, with a standard deviation of 0.21 ms, matching the server's own jitter numbers.
+- **The cost of TCP's reliability.** More than a quarter of the TCP packets (173 of 643) carry no data at all: they are acknowledgements and connection setup and teardown. The UDP stream needs none of that. It loses nothing on localhost, but on a lossy network it would just skip a state instead of stalling the stream.
+
+To reproduce: run `sudo tcpdump -i lo -w match.pcap port 5555` while a match plays.

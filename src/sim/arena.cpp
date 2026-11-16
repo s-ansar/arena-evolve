@@ -12,6 +12,8 @@ void collide(Robot& a, Robot& b) {
 
     // Not overlapping: nothing to do. Exactly on top of each other: there is no direction
     // to push in, so skip (this needs two robots placed at the same spot, which spawn avoids).
+    // Note: skipping the square root by comparing squared distances was tried and measured;
+    // it made no difference (see README "Profiling"), so the plainer version stays.
     if (distance >= touching || distance == 0.0) {
         return;
     }

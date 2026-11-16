@@ -11,7 +11,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Testing | GoogleTest | `tests/` (42 tests) |
 | [ ] | Testing | GoogleMock | |
 | [x] | Testing | CTest | `gtest_discover_tests`, `ctest` in CI and `check.sh` |
-| [ ] | Testing | Google Benchmark | |
+| [x] | Testing | Google Benchmark | `bench/sim_bench.cpp`; results in README |
 | [ ] | Testing | Code coverage (gcov/lcov) | |
 | [ ] | Debugging and quality | gdb | |
 | [x] | Debugging and quality | AddressSanitizer | `.github/workflows/ci.yml`, `check.sh address` |
@@ -26,14 +26,14 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | Concurrency | Thread pool | |
 | [x] | Concurrency | Thread-safe or lock-free queue | `src/net/thread_safe_queue.hpp` (mutex-based) |
 | [x] | Networking | TCP sockets | `src/net/socket.cpp` (raw POSIX, TCP_NODELAY, MSG_NOSIGNAL, SO_SNDTIMEO) |
-| [ ] | Networking | UDP sockets | |
-| [ ] | Networking | Non-blocking I/O | |
+| [x] | Networking | UDP sockets | `src/net/socket.cpp` (sendto/recvfrom), `src/net/server.cpp` watcher broadcast |
+| [x] | Networking | Non-blocking I/O | `MSG_DONTWAIT` UDP send/receive in the tick loop (`src/net/socket.cpp`) |
 | [x] | Networking | Custom binary protocol | `src/net/protocol.cpp` (length-prefixed big-endian frames) |
-| [ ] | Networking | Wireshark capture and analysis | |
+| [x] | Networking | Wireshark capture and analysis | `docs/captures/match.pcap`, README "The protocol on the wire" |
 | [ ] | Networking | Protocol Buffers (optional) | |
 | [x] | Real-time | Fixed-timestep loop with std::chrono | `src/sim/loop.cpp` (`steady_clock`, `sleep_until`, drift-free deadlines) |
-| [ ] | Real-time | Deadline-miss and jitter statistics | |
-| [ ] | Real-time | Profiling with perf | |
+| [x] | Real-time | Deadline-miss and jitter statistics | `src/sim/timing_stats.hpp`, `src/sim/loop.cpp`; README "Results" |
+| [x] | Real-time | Profiling with perf | README "Profiling with perf" (record, annotate, stat) |
 | [ ] | Computational intelligence | Neural network | |
 | [ ] | Computational intelligence | Genetic algorithm (neuroevolution) | |
 | [ ] | Computational intelligence | Fitness function and baseline comparison | |
