@@ -4,34 +4,34 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 
 | Done | Area | Skill or tool | Where it appears |
 |---|---|---|---|
-| [ ] | Language and build | C++20 | |
-| [ ] | Language and build | CMake | |
-| [ ] | Language and build | Ninja | |
-| [ ] | Language and build | vcpkg or FetchContent for dependencies | |
-| [ ] | Testing | GoogleTest | |
+| [x] | Language and build | C++20 | `src/`, `CMakeLists.txt` (designated initializers, `std::bit_cast`, `std::span`, defaulted `==`) |
+| [x] | Language and build | CMake | `CMakeLists.txt`: static libraries, Linux-only targets, sanitizer option |
+| [x] | Language and build | Ninja | `scripts/check.sh` (`-G Ninja`) |
+| [x] | Language and build | vcpkg or FetchContent for dependencies | `CMakeLists.txt`: GoogleTest via FetchContent |
+| [x] | Testing | GoogleTest | `tests/` (42 tests) |
 | [ ] | Testing | GoogleMock | |
-| [ ] | Testing | CTest | |
+| [x] | Testing | CTest | `gtest_discover_tests`, `ctest` in CI and `check.sh` |
 | [ ] | Testing | Google Benchmark | |
 | [ ] | Testing | Code coverage (gcov/lcov) | |
 | [ ] | Debugging and quality | gdb | |
-| [ ] | Debugging and quality | AddressSanitizer | |
-| [ ] | Debugging and quality | ThreadSanitizer | |
-| [ ] | Debugging and quality | UndefinedBehaviorSanitizer | |
+| [x] | Debugging and quality | AddressSanitizer | `.github/workflows/ci.yml`, `check.sh address` |
+| [x] | Debugging and quality | ThreadSanitizer | `ci.yml` (mmap_rnd_bits fix); `tests/concurrency_test.cpp`, `tests/server_test.cpp` |
+| [x] | Debugging and quality | UndefinedBehaviorSanitizer | `ci.yml`, `check.sh undefined` |
 | [ ] | Debugging and quality | Valgrind | |
 | [ ] | Debugging and quality | clang-tidy | |
 | [ ] | Debugging and quality | clang-format | |
-| [ ] | Concurrency | std::thread | |
-| [ ] | Concurrency | Mutexes and condition variables | |
+| [x] | Concurrency | std::thread | `src/net/server.cpp` (reader and writer thread per client) |
+| [x] | Concurrency | Mutexes and condition variables | `src/net/thread_safe_queue.hpp`, `src/net/mailbox.hpp` |
 | [ ] | Concurrency | std::atomic | |
 | [ ] | Concurrency | Thread pool | |
-| [ ] | Concurrency | Thread-safe or lock-free queue | |
-| [ ] | Networking | TCP sockets | |
+| [x] | Concurrency | Thread-safe or lock-free queue | `src/net/thread_safe_queue.hpp` (mutex-based) |
+| [x] | Networking | TCP sockets | `src/net/socket.cpp` (raw POSIX, TCP_NODELAY, MSG_NOSIGNAL, SO_SNDTIMEO) |
 | [ ] | Networking | UDP sockets | |
 | [ ] | Networking | Non-blocking I/O | |
-| [ ] | Networking | Custom binary protocol | |
+| [x] | Networking | Custom binary protocol | `src/net/protocol.cpp` (length-prefixed big-endian frames) |
 | [ ] | Networking | Wireshark capture and analysis | |
 | [ ] | Networking | Protocol Buffers (optional) | |
-| [ ] | Real-time | Fixed-timestep loop with std::chrono | |
+| [x] | Real-time | Fixed-timestep loop with std::chrono | `src/sim/loop.cpp` (`steady_clock`, `sleep_until`, drift-free deadlines) |
 | [ ] | Real-time | Deadline-miss and jitter statistics | |
 | [ ] | Real-time | Profiling with perf | |
 | [ ] | Computational intelligence | Neural network | |
@@ -42,7 +42,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | GUI | Model/view | |
 | [ ] | GUI | Qt Charts | |
 | [ ] | Engineering practice | Git branches and pull requests | |
-| [ ] | Engineering practice | GitHub Actions CI (Linux and Windows) | |
+| [x] | Engineering practice | GitHub Actions CI (Linux and Windows) | `.github/workflows/ci.yml` (5 jobs green) |
 | [ ] | Engineering practice | Docker | |
 | [ ] | Engineering practice | Doxygen documentation | |
 | [ ] | Engineering practice | Design patterns (observer, state, factory) | |
