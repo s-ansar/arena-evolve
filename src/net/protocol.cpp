@@ -10,11 +10,6 @@ namespace {
 
 static_assert(sizeof(float) == 4, "the protocol sends floats as 32 bits");
 
-constexpr std::size_t kWelcomeSize = 1;
-constexpr std::size_t kCommandSize = 8;
-constexpr std::size_t kStateHeaderSize = 5;  // tick + robot count
-constexpr std::size_t kRobotStateSize = 17;
-
 // Appends numbers to a byte vector, most significant byte first (big-endian).
 // Shifting bytes out by hand gives the same result on any CPU, so no htonl() is needed.
 class Writer {
@@ -27,6 +22,10 @@ public:
     void u32(std::uint32_t value) {
         u16(static_cast<std::uint16_t>(value >> 16));
         u16(static_cast<std::uint16_t>(value));
+    }
+    void u64(std::uint64_t value) {
+        u32(static_cast<std::uint32_t>(value >> 32));
+        u32(static_cast<std::uint32_t>(value));
     }
     // std::bit_cast copies the float's raw bits into an integer without changing them.
     void f32(float value) { u32(std::bit_cast<std::uint32_t>(value)); }
@@ -54,6 +53,10 @@ public:
     std::uint32_t u32() {
         const std::uint32_t high = u16();
         return (high << 16) | u16();
+    }
+    std::uint64_t u64() {
+        const std::uint64_t high = u32();
+        return (high << 32) | u32();
     }
     float f32() { return std::bit_cast<float>(u32()); }
 
@@ -97,6 +100,7 @@ struct PayloadEncoder {
             throw ProtocolError("too many robots for one State message");
         }
         out.u32(m.tick);
+        out.u64(m.sent_at_ns);
         out.u8(static_cast<std::uint8_t>(m.robots.size()));
         for (const RobotState& r : m.robots) {
             out.f32(r.x);
@@ -106,6 +110,9 @@ struct PayloadEncoder {
             out.u8(r.in_ring ? 1 : 0);
         }
         return static_cast<std::uint8_t>(MessageType::State);
+    }
+    std::uint8_t operator()(const Watch&) const {
+        return static_cast<std::uint8_t>(MessageType::Watch);  // no payload
     }
 };
 
@@ -122,6 +129,7 @@ Message decode_payload(std::uint8_t type, Reader& in) {
     case MessageType::State: {
         State m;
         m.tick = in.u32();
+        m.sent_at_ns = in.u64();
         const std::uint8_t count = in.u8();
         for (std::uint8_t i = 0; i < count; ++i) {
             RobotState r;
@@ -138,6 +146,8 @@ Message decode_payload(std::uint8_t type, Reader& in) {
         }
         return m;
     }
+    case MessageType::Watch:
+        return Watch{};
     }
     throw ProtocolError("unknown message type");
 }
@@ -167,7 +177,7 @@ std::optional<Message> try_decode(std::vector<std::uint8_t>& buffer) {
 
     // Check the header before waiting for the payload, so a bad frame is rejected at once.
     if (type < static_cast<std::uint8_t>(MessageType::Welcome) ||
-        type > static_cast<std::uint8_t>(MessageType::State)) {
+        type > static_cast<std::uint8_t>(MessageType::Watch)) {
         throw ProtocolError("unknown message type");
     }
     if (length > kMaxPayload) {

@@ -85,9 +85,20 @@ private:
     std::thread writer_;
 };
 
+// Limits on UDP watchers. A Watch datagram is tiny and each State back is bigger, and UDP
+// source addresses can be faked, so an open server could be used to flood someone else.
+// Capping the number of watchers and expiring silent ones limits that. Fine for a lab;
+// a public server would need authentication.
+constexpr std::size_t kMaxWatchers = 8;
+constexpr auto kWatchLease = std::chrono::seconds{5};
+
 State snapshot(const sim::Arena& arena, int tick) {
     State state;
     state.tick = static_cast<std::uint32_t>(tick);
+    state.sent_at_ns = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch())
+            .count());
     for (const sim::Robot& r : arena.robots) {
         state.robots.push_back({static_cast<float>(r.position.x), static_cast<float>(r.position.y),
                                 static_cast<float>(r.velocity.x), static_cast<float>(r.velocity.y),
@@ -105,9 +116,46 @@ sim::Arena starting_arena() {
     return arena;
 }
 
-Server::Server(std::uint16_t port) : listener_(listen_tcp(port)), port_(local_port(listener_)) {}
+Server::Server(std::uint16_t port)
+    : listener_(listen_tcp(port)), port_(local_port(listener_)), udp_(open_udp(port_)) {}
 
-std::optional<std::size_t> Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) {
+void Server::update_watchers() {
+    const auto now = Clock::now();
+    // Read every waiting datagram without blocking. Anything that is not a valid Watch
+    // frame (exactly one frame, nothing left over) is ignored.
+    while (std::optional<Datagram> datagram = receive_datagram(udp_, false)) {
+        try {
+            std::vector<std::uint8_t>& bytes = datagram->bytes;
+            const std::optional<Message> message = try_decode(bytes);
+            if (!message || !bytes.empty() || !std::holds_alternative<Watch>(*message)) {
+                continue;
+            }
+        } catch (const ProtocolError&) {
+            continue;
+        }
+
+        bool known = false;
+        for (Watcher& watcher : watchers_) {
+            if (watcher.endpoint == datagram->from) {
+                watcher.last_heard = now;  // renew the lease
+                known = true;
+            }
+        }
+        if (!known && watchers_.size() < kMaxWatchers) {
+            watchers_.push_back({datagram->from, now});
+        }
+    }
+    // Forget watchers whose lease ran out (std::erase_if is C++20).
+    std::erase_if(watchers_, [now](const Watcher& w) { return now - w.last_heard > kWatchLease; });
+}
+
+void Server::broadcast(const std::vector<std::uint8_t>& frame) {
+    for (const Watcher& watcher : watchers_) {
+        send_datagram(udp_, watcher.endpoint, frame);  // fire and forget: loss is allowed
+    }
+}
+
+MatchResult Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) {
     // Declared before the connections, so it is destroyed after them: reader threads push
     // into it until their Connection is destroyed.
     ThreadSafeQueue<RobotCommand> commands;
@@ -125,11 +173,14 @@ std::optional<std::size_t> Server::run_match(sim::Arena arena, sim::Seconds dt, 
     }
 
     // The tick hook runs on this (the simulation) thread after every step.
-    sim::run_realtime(arena, dt, max_ticks, [&](sim::Arena& a, int tick) {
+    MatchResult result;
+    result.stats = sim::run_realtime(arena, dt, max_ticks, [&](sim::Arena& a, int tick) {
         const Bytes frame = encode(snapshot(a, tick));
         for (const auto& connection : connections) {
             connection->send_state(frame);
         }
+        update_watchers();
+        broadcast(frame);
         // Apply every command that arrived since the last tick. If one client sent several,
         // the last one wins. The new thrust takes effect from the next step.
         while (std::optional<RobotCommand> rc = commands.try_pop()) {
@@ -140,7 +191,8 @@ std::optional<std::size_t> Server::run_match(sim::Arena arena, sim::Seconds dt, 
 
     // Destroying the connections sends each client the final state, then disconnects it.
     connections.clear();
-    return sim::winner(arena);
+    result.winner = sim::winner(arena);
+    return result;
 }
 
 }  // namespace net

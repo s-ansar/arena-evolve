@@ -25,7 +25,8 @@ namespace net {
 enum class MessageType : std::uint8_t {
     Welcome = 1,  // server -> client, once, right after connecting
     Command = 2,  // client -> server, any time
-    State = 3,    // server -> client, after every tick
+    State = 3,    // server -> client, after every tick (TCP to controllers, UDP to watchers)
+    Watch = 4,    // watcher -> server over UDP: "send me states for the next few seconds"
 };
 
 // Tells a new client which robot it controls (an index into State::robots).
@@ -54,14 +55,26 @@ struct RobotState {
 };
 
 // The whole arena after one tick.
-// Payload: tick (u32), robot count (u8), then one RobotState per robot. 5 + 17 * count bytes.
+// Payload: tick (u32), sent_at_ns (u64), robot count (u8), then one RobotState per robot.
+// 13 + 17 * count bytes.
 struct State {
     std::uint32_t tick = 0;
+    // The server's steady_clock reading when it sent this, in nanoseconds. steady_clock on
+    // Linux is the system-wide monotonic clock, so a receiver on the SAME machine can
+    // subtract to get the one-way latency. Across machines the numbers mean nothing.
+    std::uint64_t sent_at_ns = 0;
     std::vector<RobotState> robots;
     bool operator==(const State&) const = default;
 };
 
-using Message = std::variant<Welcome, Command, State>;
+// A watcher's request to receive State datagrams. Empty payload. Watchers resend it every
+// second; the server forgets a watcher it has not heard from for a few seconds, because
+// UDP has no connection that closes when the watcher goes away.
+struct Watch {
+    bool operator==(const Watch&) const = default;
+};
+
+using Message = std::variant<Welcome, Command, State, Watch>;
 
 constexpr std::size_t kHeaderSize = 3;
 // Upper limit on payload size. A receiver rejects anything bigger straight from the header,

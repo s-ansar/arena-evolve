@@ -1,7 +1,10 @@
 #pragma once
 
+#include <netinet/in.h>
+
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -59,5 +62,42 @@ bool send_all(const Socket& socket, std::span<const std::uint8_t> bytes);
 // Wait for some bytes and append them to buffer. Returns false when the peer has closed
 // the connection or it failed.
 bool receive_some(const Socket& socket, std::vector<std::uint8_t>& buffer);
+
+// ---- UDP ----
+// UDP sends separate datagrams with no connection: each one arrives whole or not at all,
+// maybe out of order, with no retransmission. That suits the state broadcast: a lost state
+// is replaced by the next one 16 ms later, and nothing ever waits for a missing packet
+// (TCP must deliver in order, so one lost packet holds up everything behind it).
+
+// An IPv4 address and port.
+struct Endpoint {
+    sockaddr_in address{};
+    bool operator==(const Endpoint& other) const {
+        return address.sin_addr.s_addr == other.address.sin_addr.s_addr &&
+               address.sin_port == other.address.sin_port;
+    }
+};
+
+struct Datagram {
+    Endpoint from;
+    std::vector<std::uint8_t> bytes;
+};
+
+// A UDP socket bound to every interface. port 0 lets the OS pick one.
+Socket open_udp(std::uint16_t port);
+
+// Look up host and port for sending datagrams to.
+Endpoint resolve_udp(const std::string& host, std::uint16_t port);
+
+// Send one datagram. Returns false if the OS refused it (UDP never reports loss).
+bool send_datagram(const Socket& socket, const Endpoint& to, std::span<const std::uint8_t> bytes);
+
+// Receive one datagram. With wait = false, returns nothing at once if none is waiting
+// (safe to call from the real-time loop). With wait = true, blocks until one arrives or the
+// receive timeout passes.
+std::optional<Datagram> receive_datagram(const Socket& socket, bool wait);
+
+// How long receive_datagram(socket, true) waits before giving up.
+void set_receive_timeout(const Socket& socket, std::chrono::milliseconds timeout);
 
 }  // namespace net

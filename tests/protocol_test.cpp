@@ -41,8 +41,25 @@ TEST(Protocol, EveryMessageTypeRoundTrips) {
 
     State state;
     state.tick = 123456;
+    state.sent_at_ns = 0x0123'4567'89AB'CDEFull;  // needs all 64 bits
     state.robots = {{0.5f, -0.5f, 1.0f, 0.0f, true}, {-0.9f, 0.1f, 0.0f, -0.25f, false}};
     EXPECT_EQ(round_trip(state), Message{state});
+
+    EXPECT_EQ(round_trip(net::Watch{}), Message{net::Watch{}});
+}
+
+TEST(Protocol, WatchIsJustAHeader) {
+    EXPECT_EQ(net::encode(net::Watch{}), (Bytes{4, 0, 0}));
+}
+
+TEST(Protocol, StateTimestampIsBigEndian) {
+    State state;
+    state.tick = 1;
+    state.sent_at_ns = 0x0102030405060708ull;
+    const Bytes frame = net::encode(state);
+    // header (3) + tick (4), then the 8 timestamp bytes, most significant first
+    EXPECT_EQ(Bytes(frame.begin() + 7, frame.begin() + 15), (Bytes{1, 2, 3, 4, 5, 6, 7, 8}));
+    EXPECT_EQ(frame.size(), 3u + 13u);  // no robots: 13-byte payload
 }
 
 TEST(Protocol, WaitsForTheRestOfAFrame) {

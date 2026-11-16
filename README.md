@@ -11,9 +11,9 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 | Simulation | 2D vectors, robots, fixed-timestep loop (headless and real-time) | Done |
 | Simulation | Arena, collisions, win conditions | Done |
 | Networking | TCP server, binary protocol, controllers as clients | Done |
-| Networking | UDP state broadcast, latency measurements | Planned |
+| Networking | UDP state broadcast, latency measurements | Done |
 | Concurrency | Thread per client, simulation thread, thread-safe queues | Done |
-| Real-time | Fixed tick rate with deadline-miss and jitter statistics | Planned |
+| Real-time | Fixed tick rate with deadline-miss and jitter statistics | Done |
 | AI | Neural-network controller evolved by a genetic algorithm | Planned |
 | AI | Parallel fitness evaluation, baseline comparison | Planned |
 | GUI | Qt live arena view and fitness charts | Planned |
@@ -30,9 +30,10 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 - C++20, CMake
 - GoogleTest and CTest
 - GitHub Actions CI on Linux and Windows, plus Address, Undefined and Thread sanitizer jobs
-- Raw POSIX TCP sockets (Linux), `std::thread`, mutexes and condition variables
+- Raw POSIX TCP and UDP sockets (Linux), `std::thread`, mutexes and condition variables
+- Google Benchmark
 
-Later: Google Benchmark, Qt 6, Docker, VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Grafana, Slurm, an S3-compatible object store.
+Later: Qt 6, Docker, VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Grafana, Slurm, an S3-compatible object store.
 
 ## Project structure
 
@@ -72,7 +73,10 @@ On Linux, after building, start the server, then two controller clients:
 ./build/arena_server 5555
 ./build/arena_bot 127.0.0.1 5555             # chases the other robot
 ./build/arena_bot 127.0.0.1 5555 --passive   # sits still
+./build/arena_watch 127.0.0.1 5555 10        # optional: watch over UDP for 10 s, print loss and latency
 ```
+
+The server prints the winner and the tick timing after each match.
 
 ## Design decisions
 
@@ -95,4 +99,40 @@ The server uses `socket`, `bind`, `listen`, `accept`, `recv` and `send` directly
 
 ## Results
 
-Measured numbers go here as the project grows: tick rate, missed deadlines, thread speed-up, evolved vs baseline win rate.
+Measured on 2026-11-16 on the development laptop: 4 cores at 2.4 GHz, WSL2 Ubuntu 26.04, g++ 15.2, Release build. Single runs, so treat them as indicative, not as averages over many sessions.
+
+### Real-time tick loop (one match, 60 ticks per second, 156 ticks)
+
+| Measure | Value |
+|---|---|
+| Target tick interval | 16 667 µs |
+| Mean interval | 16 665 µs |
+| Jitter (standard deviation of the interval) | 102 µs (0.6% of a tick) |
+| Shortest / longest interval | 16 355 / 16 990 µs |
+| Wake-up lateness, mean / max | 301 / 617 µs |
+| Ticks that started after their deadline | 0 |
+
+The mean interval matches the target because each deadline is computed from the start time (`start + n * period`), so lateness never adds up into drift. Wake-up lateness of about 0.3 ms is the OS scheduler and timer slack in a WSL2 virtual machine. It is under 4% of the tick budget.
+
+### UDP state broadcast (same match, `arena_watch` on the same machine)
+
+| Measure | Value |
+|---|---|
+| State datagrams received | 156 of 156 |
+| Lost / out of order | 0 / 0 |
+| One-way latency, mean (stddev) | 268 µs (106 µs) |
+| One-way latency, min / max | 120 / 807 µs |
+
+Latency is measured with the system-wide monotonic clock on both ends, so it is only valid on one machine. Over localhost no packets were lost. Loss would show up on a real network or under `tc netem` (planned for the game days).
+
+### Microbenchmarks (Google Benchmark, `sim_bench`, mean of 3 runs)
+
+| Benchmark | Time per call |
+|---|---|
+| `sim::step`, 2 robots (a real match) | 10.4 ns |
+| `sim::step`, 8 / 16 / 32 / 64 robots | 72 ns / 261 ns / 973 ns / 3.5 µs |
+| Fitted complexity of `sim::step` | O(N²), RMS error 9% |
+| Encode a 2-robot State | 138 ns |
+| Decode a 2-robot State | 54 ns |
+
+One physics step for a match takes about 10 ns of a 16.7 ms tick, so the server spends almost all of each tick asleep. The all-pairs collision check grows as N², as expected. It would only matter with hundreds of robots, and a spatial grid would fix it then. Encoding is slower than decoding because it builds the payload in a second vector and then copies it into the frame.

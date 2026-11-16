@@ -22,6 +22,7 @@ RunStats run_realtime(Arena& arena, Seconds dt, int max_ticks, const TickHook& a
 
     RunStats stats;
     auto deadline = Clock::now() + period;
+    Clock::time_point previous_start;
     while (stats.ticks < max_ticks && !match_over(arena)) {
         // Deadlines are start + n * period, not "now + period", so small delays do not add up
         // into drift. sleep_until returns at once if the deadline has already passed.
@@ -29,6 +30,15 @@ RunStats run_realtime(Arena& arena, Seconds dt, int max_ticks, const TickHook& a
             ++stats.late_ticks;
         }
         std::this_thread::sleep_until(deadline);
+
+        // Measure how late the OS woke us (never negative: sleep_until does not wake early),
+        // and the time since the previous tick started. Its spread is the jitter.
+        const auto start = Clock::now();
+        stats.lateness.add(start - deadline);
+        if (stats.ticks > 0) {
+            stats.interval.add(start - previous_start);
+        }
+        previous_start = start;
 
         // The simulation always advances by exactly dt, however late we are. That keeps
         // the physics the same on a fast or a slow machine.

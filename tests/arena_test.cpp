@@ -116,4 +116,40 @@ TEST(Loop, RealTimeRunTakesAtLeastTicksTimesStep) {
     // sleep_until never wakes early, so this lower bound is safe even on a slow CI machine.
     // There is no upper bound check: a busy machine can always be late.
     EXPECT_GE(elapsed, milliseconds{10});
+
+    // Every tick has a lateness sample; intervals exist between ticks, so one fewer.
+    EXPECT_EQ(stats.lateness.count(), 5u);
+    EXPECT_EQ(stats.interval.count(), 4u);
+    EXPECT_GE(stats.lateness.min(), std::chrono::nanoseconds{0});
+}
+
+TEST(TimingStats, MinMaxMeanAndStddev) {
+    using std::chrono::nanoseconds;
+    sim::TimingStats stats;
+    for (int x : {2, 4, 4, 4, 5, 5, 7, 9}) {  // textbook example: mean 5, population stddev 2
+        stats.add(nanoseconds{x});
+    }
+    EXPECT_EQ(stats.count(), 8u);
+    EXPECT_EQ(stats.min(), nanoseconds{2});
+    EXPECT_EQ(stats.max(), nanoseconds{9});
+    EXPECT_EQ(stats.mean(), nanoseconds{5});
+    EXPECT_EQ(stats.stddev(), nanoseconds{2});
+}
+
+TEST(TimingStats, StaysAccurateForLargeCloseValues) {
+    // 16.6 ms tick intervals that differ by 1 ns: the naive formula would lose this.
+    using std::chrono::nanoseconds;
+    sim::TimingStats stats;
+    for (int i = 0; i < 1000; ++i) {
+        stats.add(nanoseconds{16'666'666 + (i % 2)});
+    }
+    EXPECT_EQ(stats.mean(), nanoseconds{16'666'667});  // 16'666'666.5 rounds up
+    EXPECT_EQ(stats.stddev(), nanoseconds{1});          // exactly 0.5 ns, rounds to 1
+}
+
+TEST(TimingStats, EmptyIsAllZero) {
+    const sim::TimingStats stats;
+    EXPECT_EQ(stats.count(), 0u);
+    EXPECT_EQ(stats.mean().count(), 0);
+    EXPECT_EQ(stats.stddev().count(), 0);
 }

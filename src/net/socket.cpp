@@ -131,12 +131,84 @@ Socket connect_tcp(const std::string& host, std::uint16_t port) {
     return connection;
 }
 
-void set_send_timeout(const Socket& socket, std::chrono::milliseconds timeout) {
+namespace {
+
+void set_timeout(const Socket& socket, int option, std::chrono::milliseconds timeout) {
     timeval tv{};
     tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
     tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
-    if (setsockopt(socket.fd(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv) != 0) {
-        throw_errno("setsockopt(SO_SNDTIMEO)");
+    if (setsockopt(socket.fd(), SOL_SOCKET, option, &tv, sizeof tv) != 0) {
+        throw_errno("setsockopt(timeout)");
+    }
+}
+
+}  // namespace
+
+void set_send_timeout(const Socket& socket, std::chrono::milliseconds timeout) {
+    set_timeout(socket, SO_SNDTIMEO, timeout);
+}
+
+void set_receive_timeout(const Socket& socket, std::chrono::milliseconds timeout) {
+    set_timeout(socket, SO_RCVTIMEO, timeout);
+}
+
+Socket open_udp(std::uint16_t port) {
+    Socket udp(::socket(AF_INET, SOCK_DGRAM, 0));
+    if (udp.fd() < 0) {
+        throw_errno("socket(UDP)");
+    }
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
+    address.sin_port = htons(port);
+    if (bind(udp.fd(), reinterpret_cast<const sockaddr*>(&address), sizeof address) != 0) {
+        throw_errno("bind(UDP)");
+    }
+    return udp;
+}
+
+Endpoint resolve_udp(const std::string& host, std::uint16_t port) {
+    addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    addrinfo* results = nullptr;
+    const std::string service = std::to_string(port);
+    if (const int error = getaddrinfo(host.c_str(), service.c_str(), &hints, &results); error != 0) {
+        throw std::runtime_error("getaddrinfo: " + std::string(gai_strerror(error)));
+    }
+    Endpoint endpoint;
+    endpoint.address = *reinterpret_cast<const sockaddr_in*>(results->ai_addr);  // first IPv4 result
+    freeaddrinfo(results);
+    return endpoint;
+}
+
+bool send_datagram(const Socket& socket, const Endpoint& to, std::span<const std::uint8_t> bytes) {
+    // MSG_DONTWAIT: if the OS send buffer is full, drop this datagram instead of stalling the
+    // tick loop. Dropping is fine for UDP; the receiver already has to cope with loss.
+    const ssize_t sent = ::sendto(socket.fd(), bytes.data(), bytes.size(), MSG_DONTWAIT,
+                                  reinterpret_cast<const sockaddr*>(&to.address), sizeof to.address);
+    return sent == static_cast<ssize_t>(bytes.size());
+}
+
+std::optional<Datagram> receive_datagram(const Socket& socket, bool wait) {
+    // 65507 bytes is the largest possible UDP payload over IPv4. A smaller buffer would
+    // silently cut longer datagrams short.
+    std::vector<std::uint8_t> bytes(65507);
+    Datagram datagram;
+    socklen_t size = sizeof datagram.from.address;
+    while (true) {
+        const ssize_t received =
+            ::recvfrom(socket.fd(), bytes.data(), bytes.size(), wait ? 0 : MSG_DONTWAIT,
+                       reinterpret_cast<sockaddr*>(&datagram.from.address), &size);
+        if (received < 0 && errno == EINTR) {
+            continue;
+        }
+        if (received < 0) {
+            return std::nullopt;  // nothing waiting, timed out, or an error
+        }
+        bytes.resize(static_cast<std::size_t>(received));
+        datagram.bytes = std::move(bytes);
+        return datagram;
     }
 }
 

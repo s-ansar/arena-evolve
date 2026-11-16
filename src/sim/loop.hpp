@@ -3,6 +3,7 @@
 #include <functional>
 
 #include "sim/arena.hpp"
+#include "sim/timing_stats.hpp"
 
 namespace sim {
 
@@ -12,8 +13,10 @@ namespace sim {
 int run_headless(Arena& arena, Seconds dt, int max_ticks);
 
 struct RunStats {
-    int ticks = 0;       // ticks actually run
-    int late_ticks = 0;  // ticks that started after their deadline (the loop fell behind)
+    int ticks = 0;           // ticks actually run
+    int late_ticks = 0;      // ticks whose deadline had passed before the loop got to them
+    TimingStats lateness;    // per tick: when it really started minus when it should have
+    TimingStats interval;    // time between the starts of consecutive ticks; stddev = jitter
 };
 
 // Called after every real-time tick, on the loop's own thread. The server uses it to send
