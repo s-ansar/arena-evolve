@@ -1,0 +1,3 @@
+# Let git normalise line endings, but shell scripts must always be LF or Linux cannot run them.
+* text=auto
+*.sh text eol=lf
