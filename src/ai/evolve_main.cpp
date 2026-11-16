@@ -1,6 +1,7 @@
-// arena_evolve [generations] [threads] [seed] [output]
+// arena_evolve [generations] [threads] [seed] [output] [log]
 // Evolves neural-network controllers against the chase bot and saves the best genome.
-// Defaults: 40 generations, all CPU threads, seed 1, best_genome.txt.
+// Defaults: 40 generations, all CPU threads, seed 1, best_genome.txt, evolution.csv.
+// The log (best and mean fitness per generation) can be charted with arena_view --fitness.
 //
 // Prints, per generation: best and mean fitness. At the end: the best genome's record on
 // the 16 held-out start angles (never used in training), next to two baselines, and how
@@ -9,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numbers>
@@ -17,6 +19,7 @@
 #include <thread>
 
 #include "ai/chase.hpp"
+#include "ai/evolution_log.hpp"
 #include "ai/genetic.hpp"
 #include "ai/match.hpp"
 #include "ai/network.hpp"
@@ -59,6 +62,7 @@ int main(int argc, char** argv) {
     const std::size_t threads = argc > 2 ? std::stoul(argv[2]) : hardware;
     const std::uint64_t seed = argc > 3 ? std::stoull(argv[3]) : 1;
     const std::string output = argc > 4 ? argv[4] : "best_genome.txt";
+    const std::string log_path = argc > 5 ? argv[5] : "evolution.csv";
 
     try {
         const ai::GaParams params;
@@ -80,10 +84,12 @@ int main(int argc, char** argv) {
                   << " generations, " << pool.size() << " threads, seed " << seed << "\n";
         const auto start = Clock::now();
         std::vector<double> fitness;
+        std::vector<ai::GenerationStats> log;
         for (int generation = 0; generation <= generations; ++generation) {
             fitness = evaluate_population(pool, population, train);
             const double best = *std::max_element(fitness.begin(), fitness.end());
             const double mean = std::accumulate(fitness.begin(), fitness.end(), 0.0) / fitness.size();
+            log.push_back({generation, best, mean});
             std::cout << "gen " << std::setw(3) << generation << "  best " << std::fixed << std::setprecision(2)
                       << best << "  mean " << mean << "\n";
             if (generation < generations) {
@@ -96,8 +102,13 @@ int main(int argc, char** argv) {
             std::max_element(fitness.begin(), fitness.end()) - fitness.begin());
         const ai::Genome& best = population[best_index];
         ai::save_genome(best, output);
-        std::cout << "saved best genome to " << output << " (training took " << std::setprecision(1)
-                  << training_seconds << " s)\n";
+        std::ofstream log_file(log_path);
+        ai::write_evolution_log(log_file, log);
+        if (!log_file) {
+            throw std::runtime_error("cannot write " + log_path);
+        }
+        std::cout << "saved best genome to " << output << " and the log to " << log_path << " (training took "
+                  << std::setprecision(1) << training_seconds << " s)\n";
 
         // Results on the held-out angles, 32 matches each (16 angles x both sides).
         const auto neural = [](const ai::Genome& g) {

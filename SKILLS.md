@@ -37,10 +37,10 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Computational intelligence | Neural network | `src/ai/network.cpp` (8-8-2 tanh MLP, forward pass from a flat genome) |
 | [x] | Computational intelligence | Genetic algorithm (neuroevolution) | `src/ai/genetic.cpp` (tournament, uniform crossover, Gaussian mutation, elitism) |
 | [x] | Computational intelligence | Fitness function and baseline comparison | `src/ai/match.cpp`; README "Neuroevolution vs the chase bot" (held-out angles, 5 seeds) |
-| [ ] | GUI | Qt Widgets | |
-| [ ] | GUI | Signals and slots | |
+| [x] | GUI | Qt Widgets | `src/gui/` (`QMainWindow`, `QTabWidget`, custom `QWidget::paintEvent` with `QPainter`) |
+| [x] | GUI | Signals and slots | `src/gui/udp_watcher.cpp` (`readyRead`, `QTimer::timeout`, custom `stateReceived` signal) |
 | [ ] | GUI | Model/view | |
-| [ ] | GUI | Qt Charts | |
+| [x] | GUI | Qt Charts | `src/gui/main_window.cpp` (`QChart`, `QLineSeries`, `QValueAxis`) |
 | [ ] | Engineering practice | Git branches and pull requests | |
 | [x] | Engineering practice | GitHub Actions CI (Linux and Windows) | `.github/workflows/ci.yml` (5 jobs green) |
 | [ ] | Engineering practice | Docker | |

@@ -16,7 +16,7 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 | Real-time | Fixed tick rate with deadline-miss and jitter statistics | Done |
 | AI | Neural-network controller evolved by a genetic algorithm | Done |
 | AI | Parallel fitness evaluation, baseline comparison | Done |
-| GUI | Qt live arena view and fitness charts | Planned |
+| GUI | Qt live arena view and fitness charts | Done |
 | Platform | Hardware map and benchmarks (CPU, memory, disk, network) | Planned |
 | Platform | Ubuntu VMs with Vagrant, systemd service, hardened ssh | Planned |
 | Platform | Kubernetes (k3d) cluster running the server | Planned |
@@ -32,8 +32,9 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 - GitHub Actions CI on Linux and Windows, plus Address, Undefined and Thread sanitizer jobs
 - Raw POSIX TCP and UDP sockets (Linux), `std::thread`, mutexes and condition variables
 - Google Benchmark
+- Qt 6 Widgets, Network and Charts (the optional `arena_view` GUI)
 
-Later: Qt 6, Docker, VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Grafana, Slurm, an S3-compatible object store.
+Later: Docker, VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Grafana, Slurm, an S3-compatible object store.
 
 ## Project structure
 
@@ -42,6 +43,7 @@ arena-evolve/
 ├── src/sim/              # Simulation core: Vec2, Robot, Arena, game loops
 ├── src/net/              # Protocol, queues, sockets, server, client
 ├── src/ai/               # Chase bot, neural network, genetic algorithm, thread pool
+├── src/gui/              # Qt viewer: live arena over UDP, fitness chart
 ├── bench/                # Google Benchmark microbenchmarks
 ├── tests/                # GoogleTest unit tests
 ├── .github/workflows/    # CI: build and test, plus sanitizers
@@ -96,6 +98,26 @@ How it works:
 - **Genetic algorithm.** Population 64, 2 elites copied unchanged, tournament selection (3 genomes per pick), uniform crossover, and Gaussian mutation (10% of weights, σ = 0.3). One seeded `std::mt19937_64` makes every run reproducible. Elitism plus deterministic matches guarantee that the best fitness never drops (a test checks this).
 - **Parallel fitness.** A thread pool (worker threads sharing the existing `ThreadSafeQueue`) scores genomes in parallel. `parallel_for` waits on a C++20 `std::latch`. Each task writes only its own result slot, so nothing else needs a lock. A test checks that parallel and serial results are bit-for-bit identical.
 - **Overfitting check.** Training uses 8 start angles. The final results use 16 *different* angles, offset by half a step, which the genome never saw during training.
+
+`arena_evolve` also writes `evolution.csv` (best and mean fitness per generation), which the viewer charts.
+
+## Watch it live (Qt)
+
+`arena_view` is a Qt 6 desktop app. It joins a running server as a UDP watcher, so the server needs no changes. It is built only where Qt 6 is installed (on Ubuntu: `sudo apt install qt6-base-dev qt6-charts-dev`). Under WSL2 its window appears on the Windows desktop through WSLg.
+
+```bash
+./build/arena_view 127.0.0.1 5555 --fitness evolution.csv
+```
+
+| Live tab | Evolution tab |
+|---|---|
+| ![Live arena: the evolved robot (blue, 0) pushing the chase bot (orange, 1) off the edge](docs/images/arena_view_live.png) | ![Best and mean fitness per generation](docs/images/arena_view_evolution.png) |
+
+- **Live:** the arena as the server broadcasts it. Arrows show velocity. The status line shows UDP states received, lost and out of order, and the mean latency. In the screenshot, the evolved controller (blue) is pushing the chase bot off the top edge at tick 185.
+- **Evolution:** the best fitness climbs in steps and never falls (elitism). The mean follows as good genes spread through the population.
+- **How it is built:** `QUdpSocket::readyRead` and a 1-second `QTimer` (to renew the Watch lease) are connected to slots, so all networking runs on Qt's event loop with no extra threads. `ArenaWidget` paints with `QPainter`, flipping y because the arena's y points up. The chart uses Qt Charts (`QLineSeries`, `QValueAxis`).
+- **Latency as the GUI sees it:** about 6 ms mean, against 0.27 ms for `arena_watch` on the same machine. The GUI timestamps a datagram only when the event loop gets to it, which can be after a repaint, and under WSLg each repaint goes through a compositor. So this number is "time until the GUI noticed", not network latency. For network figures, use `arena_watch`.
+- `--screenshot file.png` saves the window after 3 seconds and exits. That is how the images above were made, and how the GUI was checked without anyone looking at it.
 
 ## Design decisions
 

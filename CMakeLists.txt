@@ -38,13 +38,30 @@ target_link_libraries(net_core PUBLIC Threads::Threads PRIVATE project_warnings)
 # Controllers and neuroevolution: chase bot, neural network, headless matches, genetic
 # algorithm, thread pool. Portable, so evolution also runs on Windows.
 add_library(ai STATIC src/ai/chase.cpp src/ai/network.cpp src/ai/match.cpp src/ai/genetic.cpp
-                      src/ai/thread_pool.cpp)
+                      src/ai/thread_pool.cpp src/ai/evolution_log.cpp)
 target_link_libraries(ai PUBLIC sim net_core PRIVATE project_warnings)
 
 add_executable(arena_evolve src/ai/evolve_main.cpp)
 target_link_libraries(arena_evolve PRIVATE ai project_warnings)
 add_executable(arena_fitness src/ai/fitness_main.cpp)
 target_link_libraries(arena_fitness PRIVATE ai project_warnings)
+
+# The Qt viewer is optional: it is built only where Qt 6 is installed, so the rest of the
+# project still builds without it (Windows CI does not install Qt).
+find_package(Qt6 6.4 COMPONENTS Widgets Network Charts QUIET)
+if(Qt6_FOUND)
+  add_executable(arena_view
+    src/gui/main.cpp
+    src/gui/main_window.cpp src/gui/main_window.hpp
+    src/gui/arena_widget.cpp src/gui/arena_widget.hpp
+    src/gui/udp_watcher.cpp src/gui/udp_watcher.hpp)
+  # AUTOMOC runs Qt's meta-object compiler on classes marked Q_OBJECT; it generates the
+  # code behind signals and slots.
+  set_target_properties(arena_view PROPERTIES AUTOMOC ON)
+  target_link_libraries(arena_view PRIVATE ai Qt6::Widgets Qt6::Network Qt6::Charts project_warnings)
+else()
+  message(STATUS "Qt 6 (Widgets, Network, Charts) not found: arena_view will not be built")
+endif()
 
 # The server and client use raw POSIX sockets, so they are Linux only (see README).
 if(NOT WIN32)
@@ -73,7 +90,7 @@ add_executable(sim_tests tests/sim_test.cpp tests/arena_test.cpp)
 target_link_libraries(sim_tests PRIVATE sim project_warnings GTest::gtest_main)
 add_executable(net_core_tests tests/protocol_test.cpp tests/concurrency_test.cpp tests/stream_stats_test.cpp)
 target_link_libraries(net_core_tests PRIVATE net_core project_warnings GTest::gtest_main)
-add_executable(ai_tests tests/ai_test.cpp tests/chase_test.cpp)
+add_executable(ai_tests tests/ai_test.cpp tests/chase_test.cpp tests/evolution_log_test.cpp)
 target_link_libraries(ai_tests PRIVATE ai project_warnings GTest::gtest_main)
 
 include(GoogleTest)
