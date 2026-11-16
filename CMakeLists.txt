@@ -27,6 +27,25 @@ add_library(sim STATIC src/sim/arena.cpp src/sim/loop.cpp)
 target_include_directories(sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(sim PRIVATE project_warnings)
 
+find_package(Threads REQUIRED)
+
+# Protocol, thread-safe queue, mailbox and the baseline controller. No sockets here, so this
+# part builds and is tested on Windows too.
+add_library(net_core STATIC src/net/protocol.cpp src/ai/chase.cpp)
+target_include_directories(net_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(net_core PUBLIC Threads::Threads PRIVATE project_warnings)
+
+# The server and client use raw POSIX sockets, so they are Linux only (see README).
+if(NOT WIN32)
+  add_library(net STATIC src/net/socket.cpp src/net/server.cpp src/net/client.cpp)
+  target_link_libraries(net PUBLIC sim net_core PRIVATE project_warnings)
+
+  add_executable(arena_server src/net/server_main.cpp)
+  target_link_libraries(arena_server PRIVATE net project_warnings)
+  add_executable(arena_bot src/net/bot_main.cpp)
+  target_link_libraries(arena_bot PRIVATE net project_warnings)
+endif()
+
 # Tests: GoogleTest is downloaded at configure time, so nothing needs installing by hand.
 enable_testing()
 include(FetchContent)
@@ -39,5 +58,15 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(sim_tests tests/sim_test.cpp tests/arena_test.cpp)
 target_link_libraries(sim_tests PRIVATE sim project_warnings GTest::gtest_main)
+add_executable(net_core_tests tests/protocol_test.cpp tests/concurrency_test.cpp tests/chase_test.cpp)
+target_link_libraries(net_core_tests PRIVATE net_core project_warnings GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(sim_tests)
+gtest_discover_tests(net_core_tests)
+
+if(NOT WIN32)
+  add_executable(server_tests tests/server_test.cpp)
+  target_link_libraries(server_tests PRIVATE net project_warnings GTest::gtest_main)
+  gtest_discover_tests(server_tests)
+endif()

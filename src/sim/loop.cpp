@@ -14,7 +14,7 @@ int run_headless(Arena& arena, Seconds dt, int max_ticks) {
     return ticks;
 }
 
-RunStats run_realtime(Arena& arena, Seconds dt, int max_ticks) {
+RunStats run_realtime(Arena& arena, Seconds dt, int max_ticks, const TickHook& after_tick) {
     using Clock = std::chrono::steady_clock;
     // Convert the step to the clock's own integer unit once, so deadlines add up exactly
     // instead of collecting floating-point rounding error over thousands of ticks.
@@ -34,6 +34,9 @@ RunStats run_realtime(Arena& arena, Seconds dt, int max_ticks) {
         // the physics the same on a fast or a slow machine.
         step(arena, dt);
         ++stats.ticks;
+        if (after_tick) {
+            after_tick(arena, stats.ticks);
+        }
         deadline += period;
 
         // If we fell more than a whole tick behind (for example the process was paused),

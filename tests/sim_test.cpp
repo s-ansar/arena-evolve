@@ -42,3 +42,25 @@ TEST(Robot, StaysPutWithZeroVelocity) {
     sim::integrate(robot, sim::Seconds{1.0});
     EXPECT_EQ(robot.position, (Vec2{1.0, 1.0}));
 }
+
+TEST(Robot, ThrustSpeedsTheRobotUp) {
+    Robot robot;
+    robot.thrust = {1.0, 0.0};
+    sim::integrate(robot, sim::Seconds{0.5});
+    EXPECT_EQ(robot.velocity, (Vec2{0.5, 0.0}));  // starts at rest, so no drag yet
+}
+
+TEST(Robot, ThrustIsCappedAtMaxThrust) {
+    Robot robot;
+    robot.thrust = {30.0, 40.0};  // length 50, far above max_thrust = 1
+    sim::integrate(robot, sim::Seconds{1.0});
+    EXPECT_DOUBLE_EQ(robot.velocity.length(), 1.0);
+    EXPECT_DOUBLE_EQ(robot.velocity.x, 0.6);  // same direction as requested (3, 4) / 5
+}
+
+TEST(Robot, DragSlowsACoastingRobot) {
+    Robot robot;
+    robot.velocity = {1.0, 0.0};
+    sim::integrate(robot, sim::Seconds{0.25});
+    EXPECT_DOUBLE_EQ(robot.velocity.x, 0.75);  // loses drag * velocity * dt = 0.25
+}

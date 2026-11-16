@@ -15,8 +15,8 @@ namespace {
 // Two robots of radius 0.1 m in a 1 m ring, placed by the caller.
 Arena two_robots(Vec2 pos_a, Vec2 vel_a, Vec2 pos_b, Vec2 vel_b) {
     Arena arena;
-    arena.robots.push_back(Robot{pos_a, vel_a});
-    arena.robots.push_back(Robot{pos_b, vel_b});
+    arena.robots.push_back(Robot{.position = pos_a, .velocity = vel_a});
+    arena.robots.push_back(Robot{.position = pos_b, .velocity = vel_b});
     return arena;
 }
 
@@ -92,6 +92,7 @@ TEST(Loop, HeadlessRunStopsWhenTheMatchIsOver) {
     // Robot 0 drives right at 1 m/s from x = 0.5. A 0.125 s step is exact in binary, so the
     // positions are exactly 0.625, 0.75, 0.875, 1.0 (on the edge, still in), then 1.125 (out).
     Arena arena = two_robots({0.5, 0.0}, {1.0, 0.0}, {-0.5, 0.0}, {});
+    arena.robots[0].drag = 0.0;  // coast at a steady speed so the positions are exact
     const int ticks = sim::run_headless(arena, Seconds{0.125}, 100);
     EXPECT_EQ(ticks, 5);
     EXPECT_EQ(sim::winner(arena), 1u);
