@@ -16,6 +16,7 @@ struct Robot {
     Vec2 position;       // metres
     Vec2 velocity;       // metres per second
     double radius = 0.1; // metres
+    bool in_ring = true; // false once pushed out; an out robot no longer moves or collides
 };
 
 // Advance one robot by dt using explicit Euler integration:

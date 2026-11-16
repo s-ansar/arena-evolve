@@ -8,8 +8,8 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 
 | | Feature | Status |
 |---|---|---|
-| Simulation | 2D vectors, robots, fixed-timestep integration | In progress |
-| Simulation | Arena, collisions, win conditions | Planned |
+| Simulation | 2D vectors, robots, fixed-timestep loop (headless and real-time) | Done |
+| Simulation | Arena, collisions, win conditions | Done |
 | Networking | TCP server, binary protocol, controllers as clients | Planned |
 | Networking | UDP state broadcast, latency measurements | Planned |
 | Concurrency | Thread per client, simulation thread, thread-safe queues | Planned |
@@ -37,7 +37,7 @@ Later: sockets (POSIX or Boost.Asio), Google Benchmark, Qt 6, Docker, VirtualBox
 
 ```
 arena-evolve/
-├── src/sim/              # Simulation core: Vec2, Robot (arena and loop come next)
+├── src/sim/              # Simulation core: Vec2, Robot, Arena, game loops
 ├── tests/                # GoogleTest unit tests
 ├── .github/workflows/    # CI: build and test, plus sanitizers
 ├── infra/                # Platform lab as code (VMs, Kubernetes, Slurm, storage, monitoring), coming

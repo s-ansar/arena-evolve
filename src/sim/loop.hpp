@@ -1,0 +1,22 @@
+#pragma once
+
+#include "sim/arena.hpp"
+
+namespace sim {
+
+// Run the match as fast as the CPU allows, with a fixed simulated time step. Used for
+// fitness evaluation, where nobody is watching and wall-clock time does not matter.
+// Stops when the match is over or after max_ticks. Returns the number of ticks run.
+int run_headless(Arena& arena, Seconds dt, int max_ticks);
+
+struct RunStats {
+    int ticks = 0;       // ticks actually run
+    int late_ticks = 0;  // ticks that started after their deadline (the loop fell behind)
+};
+
+// Run the match in real time: one tick every dt of wall-clock time, timed with
+// std::chrono::steady_clock (it never jumps, unlike system_clock when the PC clock is changed).
+// Stops when the match is over or after max_ticks. Used by the server from week 2.
+RunStats run_realtime(Arena& arena, Seconds dt, int max_ticks);
+
+}  // namespace sim

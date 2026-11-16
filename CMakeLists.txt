@@ -21,10 +21,11 @@ if(SANITIZE AND NOT MSVC)
   add_link_options(-fsanitize=${SANITIZE})
 endif()
 
-# The simulation core is header-only for now. It becomes a normal library once it has .cpp files.
-add_library(sim INTERFACE)
-target_include_directories(sim INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(sim INTERFACE project_warnings)
+# The simulation core: arena physics and the game loops. A static library, so the tests now
+# and the server later link the same code.
+add_library(sim STATIC src/sim/arena.cpp src/sim/loop.cpp)
+target_include_directories(sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(sim PRIVATE project_warnings)
 
 # Tests: GoogleTest is downloaded at configure time, so nothing needs installing by hand.
 enable_testing()
@@ -36,7 +37,7 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)  # Needed on Windows (MSVC runtime match).
 FetchContent_MakeAvailable(googletest)
 
-add_executable(sim_tests tests/sim_test.cpp)
-target_link_libraries(sim_tests PRIVATE sim GTest::gtest_main)
+add_executable(sim_tests tests/sim_test.cpp tests/arena_test.cpp)
+target_link_libraries(sim_tests PRIVATE sim project_warnings GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(sim_tests)
