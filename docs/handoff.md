@@ -41,4 +41,4 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 Skills not on the CV that would fit naturally: libFuzzer on `net::try_decode` (week 2 follow-up), an ESP32/FreeRTOS controller client, MPI for fitness evaluation in phase D4. The owner said the current scope is good; ask before adding any to `docs/plan.md`.
 
 ## Rules for the next session
-Do not install, commit or push without the user's explicit OK.
+Do not ask the owner for confirmation; carry on with the plan. Commit and push to `main` once the tests pass in Debug and under all three sanitizers, install the tools the work needs, and choose sensible defaults instead of asking. Report what was done (commits, installs, decisions) in the summary. Prefer reversible ways of working (new commits rather than force-pushes or history rewrites). (Owner's decision, 2026-11-17.)
