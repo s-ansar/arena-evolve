@@ -35,7 +35,7 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - The server accepts clients one by one with no timeout and plays one match at a time.
 
 ## Next steps
-1. Arena Platform phase D2 (k3d: 1 server + 2 agents, Deployments, Services, ConfigMaps, probes, rolling update without dropped games, Jobs), then D3-D7. Budgets from `docs/hardware_map.md`: 4 vCPU, 3.8 GiB in WSL, disk writes ~70 MB/s.
+1. Arena Platform phase D2, in progress. Done: graceful drain in C++ (commit 782a89d: SIGTERM finishes the match, /ready 503, MatchReport finished/DROPPED, `arena_bot --forever`), kubectl 1.34 + k3d 5.8.3 installed (`infra/d2/install_tools.sh`). To do: Dockerfile ARG ARENA_VERSION label to build server tags :1 and :2; manifests in `infra/d2/k8s/` (namespace, genome ConfigMap via `kubectl create configmap --from-file=docs/genomes`, server Deployment maxSurge 1 maxUnavailable 0, terminationGracePeriodSeconds 90, liveness /health, readiness /ready, limits, securityContext; Service tcp+udp 5555 and 8080; bot-evolved and bot-chase Deployments with --forever; Indexed Job running arena_evolve seeds); `k3d cluster create arena --agents 2 --k3s-arg "--disable=traefik@server:0"`, `k3d image import`; rollout test counting DROPPED in bot logs, with a control run at terminationGracePeriodSeconds 1. Halt the D1 VMs first (RAM). Then D3-D7. Budgets from `docs/hardware_map.md`: 4 vCPU, 3.8 GiB in WSL, disk writes ~70 MB/s.
 2. Run clang-format over the code (one commit), then tick it.
 3. Possible AI follow-ups: fresh random training angles each generation (seed 4 overfitted), evolve against the best previous genome (self-play).
 
