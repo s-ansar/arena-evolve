@@ -18,7 +18,7 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 | AI | Parallel fitness evaluation, baseline comparison | Done |
 | GUI | Qt live arena view and fitness charts | Done |
 | Platform | Hardware map and benchmarks (CPU, memory, disk, network) | Done ([docs/hardware_map.md](docs/hardware_map.md)) |
-| Platform | Ubuntu VMs with Vagrant, systemd service, hardened ssh | Planned |
+| Platform | Ubuntu VMs with Vagrant (KVM), systemd service, hardened ssh | Done ([docs/d1_linux_vms.md](docs/d1_linux_vms.md)) |
 | Platform | Kubernetes (k3d) cluster running the server | Planned |
 | Platform | Prometheus, Grafana and alerts for tick latency and node health | Planned |
 | Platform | Slurm cluster running neuroevolution as job arrays, scaling study | Planned |

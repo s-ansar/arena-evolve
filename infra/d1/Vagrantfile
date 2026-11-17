@@ -1,0 +1,39 @@
+# Phase D1: two Ubuntu 24.04 VMs on KVM (libvirt) inside WSL2.
+#   cd infra/d1 && vagrant up        build both VMs from scratch (about 10 minutes)
+#   vagrant ssh server               log in (key only; passwords are disabled)
+#   bash verify.sh                   check everything works and is locked down
+#
+# Networks, as each VM sees them:
+#   eth0  NAT "management" network (vagrant-libvirt's default, 192.168.121.0/24).
+#         The VM can reach the internet through the host, but nothing outside can start a
+#         connection to it. Vagrant uses it for ssh.
+#   eth1  private host-only network 192.168.56.0/24. Only the host (192.168.56.1) and the
+#         other VM are on it. The game traffic runs here.
+Vagrant.configure("2") do |config|
+  config.vm.box = "cloud-image/ubuntu-24.04"
+
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.driver = "kvm"
+    libvirt.memory = 1024  # MiB; two of these fit in WSL's 4 GB (see docs/hardware_map.md)
+    libvirt.cpus = 2
+  end
+
+  # Copy the source code into each VM (one-way rsync, re-run with `vagrant rsync`).
+  # Large or irrelevant folders are left out.
+  config.vm.synced_folder "../..", "/vagrant", type: "rsync",
+    rsync__exclude: [".git/", ".github/", ".claude/", "build*/", "docs/hardware/", "docs/captures/",
+                     "docs/images/", "infra/d1/.vagrant/"]
+
+  config.vm.define "server" do |server|
+    server.vm.hostname = "arena-server"
+    server.vm.network :private_network, ip: "192.168.56.10"
+    server.vm.provision "shell", path: "provision/common.sh"
+    server.vm.provision "shell", path: "provision/server.sh"
+  end
+
+  config.vm.define "client" do |client|
+    client.vm.hostname = "arena-client"
+    client.vm.network :private_network, ip: "192.168.56.11"
+    client.vm.provision "shell", path: "provision/common.sh"
+  end
+end

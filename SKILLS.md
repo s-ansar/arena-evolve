@@ -51,10 +51,10 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Linux | Daily development on Ubuntu (WSL2) | all builds, tests and measurements run in WSL2 Ubuntu 26.04 |
 | [x] | Linux | Bash scripting | `scripts/check.sh`, `infra/d0/*.sh` |
 | [ ] | Linux | File permissions and processes | |
-| [ ] | Linux | ssh with key-only login | |
-| [ ] | Linux | systemd service | |
-| [ ] | Linux | journalctl logs | |
-| [ ] | Linux | ufw firewall | |
+| [x] | Linux | ssh with key-only login | `infra/d1/provision/common.sh` (sshd drop-in, verified by `infra/d1/verify.sh`) |
+| [x] | Linux | systemd service | `infra/d1/arena-server.service` (sandboxed, exposure 1.3) |
+| [x] | Linux | journalctl logs | `infra/d1/verify.sh` reads match results from the journal |
+| [x] | Linux | ufw firewall | `infra/d1/provision/*.sh` (default deny, lab subnet only) |
 | [ ] | Linux | ss, ip and tcpdump | |
 | [x] | Operations | Docker Compose | `compose.yaml` (server + two bots); results in README |
 | [ ] | Operations | Prometheus metrics | |
@@ -62,9 +62,10 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | Operations | Deployment on an Ubuntu host (EC2 or Raspberry Pi) | |
 | [ ] | Testing | Fuzzing with libFuzzer | |
 | [ ] | Optional | TLS (OpenSSL) | |
-| [ ] | VMs | VirtualBox virtual machines | |
-| [ ] | VMs | Vagrant (reproducible VMs) | |
-| [ ] | VMs | Snapshots and NAT vs host-only networking | |
+| [ ] | VMs | VirtualBox virtual machines | not used: replaced by KVM/libvirt (next row) |
+| [x] | VMs | KVM/QEMU with libvirt (nested in WSL2) | `infra/d1/install_host.sh`, `virsh`, `docs/d1_linux_vms.md` |
+| [x] | VMs | Vagrant (reproducible VMs) | `infra/d1/Vagrantfile` (vagrant-libvirt, fresh up in 281 s) |
+| [x] | VMs | Snapshots and NAT vs host-only networking | `infra/d1/snapshot_demo.sh`, `docs/d1_linux_vms.md` |
 | [ ] | Kubernetes | k3d or k3s cluster with kubectl | |
 | [ ] | Kubernetes | Deployments, Services and ConfigMaps | |
 | [ ] | Kubernetes | Resource requests/limits and probes | |

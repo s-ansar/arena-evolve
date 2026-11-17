@@ -1,4 +1,4 @@
-# Arena Evolve: handoff (2026-11-17, application done, platform D0 done)
+# Arena Evolve: handoff (2026-11-17, application done, platform D0-D1 done)
 
 Read `CLAUDE.md`, `SKILLS.md` and `docs/plan.md` first. Rules there still apply: keep code simple, explain each step briefly, owner must be able to explain every line, never claim a skill not backed by real code.
 
@@ -17,7 +17,8 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - **Tests:** 79 (`sim_tests`, `net_core_tests`, `ai_tests`, `server_tests` Linux-only), including an end-to-end match over TCP plus a UDP watcher, thread-pool determinism (parallel == serial fitness), "best fitness never drops", the evolution CSV, metrics/HTTP routing and a real HTTP scrape. The GUI has no unit tests; it is checked by the screenshot run.
 - **Earlier review findings:** all 5 resolved.
 - **Platform D0 done:** `infra/d0/` (inventory, baseline, summarise, Windows write test), `make hardware`, `docs/hardware_map.md` (spec vs measured; SSD writes ~70 MB/s traced to the QLC drive, not WSL). Tools installed: sysbench, stress-ng, fio, iperf3, numactl, pciutils, hwloc.
-- **SKILLS.md:** 39 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
+- **Platform D1 done:** `infra/d1/` Vagrant + vagrant-libvirt on KVM nested in WSL2 (VirtualBox replaced; reasons in `docs/d1_linux_vms.md`). 2 VMs (server 192.168.56.10, client .11), bash provisioning, sandboxed systemd unit (exposure 1.3), key-only ssh, ufw, snapshots. `make vms-up|vms-verify|vms-down`; 11 checks pass after a fresh build (281 s). Vagrant must run from a Linux path: `up.sh` rsyncs the repo to `~/arena-d1`. VMs are halted to save RAM. `.wslconfig` now has `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` (WSL used to stop the distro ~15 s after the last session, killing VMs).
+- **SKILLS.md:** 46 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
 
 ## Environment
 - WSL2 Ubuntu 26.04 (disk `D:\wsl\Ubuntu`), capped at 4 GB / 4 CPUs by `C:\Users\hp\.wslconfig`. systemd enabled, default user `hp`.
@@ -34,7 +35,7 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - The server accepts clients one by one with no timeout and plays one match at a time.
 
 ## Next steps
-1. Arena Platform phase D1 (Linux and VMs: Vagrant + VirtualBox on Windows, 2 Ubuntu VMs, systemd service, hardened ssh), then D2 (k3d) and D3 (Prometheus/Grafana scraping `/metrics`). Budgets from `docs/hardware_map.md`: 4 vCPU, 3.8 GiB in WSL, disk writes ~70 MB/s.
+1. Arena Platform phase D2 (k3d: 1 server + 2 agents, Deployments, Services, ConfigMaps, probes, rolling update without dropped games, Jobs), then D3-D7. Budgets from `docs/hardware_map.md`: 4 vCPU, 3.8 GiB in WSL, disk writes ~70 MB/s.
 2. Run clang-format over the code (one commit), then tick it.
 3. Possible AI follow-ups: fresh random training angles each generation (seed 4 overfitted), evolve against the best previous genome (self-play).
 
@@ -42,4 +43,4 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 Skills not on the CV that would fit naturally: libFuzzer on `net::try_decode` (week 2 follow-up), an ESP32/FreeRTOS controller client, MPI for fitness evaluation in phase D4. The owner said the current scope is good; ask before adding any to `docs/plan.md`.
 
 ## Rules for the next session
-Do not ask the owner for confirmation; carry on with the plan. Commit and push to `main` once the tests pass in Debug and under all three sanitizers, install the tools the work needs, and choose sensible defaults instead of asking. Report what was done (commits, installs, decisions) in the summary. Prefer reversible ways of working (new commits rather than force-pushes or history rewrites). (Owner's decision, 2026-11-17.)
+Do not ask the owner anything, not even whether to continue: work through the plan to the end (all platform phases), adapting when something is blocked. Commit and push to `main` once the tests pass in Debug and under all three sanitizers, install the tools the work needs, and choose sensible defaults instead of asking. Report what was done (commits, installs, decisions) in the summary. Prefer reversible ways of working (new commits rather than force-pushes or history rewrites). (Owner's decision, 2026-11-17.)
