@@ -6,6 +6,7 @@
 
 #include "ai/chase.hpp"
 #include "net/client.hpp"
+#include "net/http_server.hpp"
 #include "net/server.hpp"
 #include "net/stream_stats.hpp"
 
@@ -63,7 +64,44 @@ TEST(Server, ChaserPushesAPassiveRobotOutOfTheRing) {
 
     // UDP may drop packets, so do not demand every tick. Locally nearly all should arrive.
     EXPECT_GT(watched.received(), static_cast<std::uint64_t>(result->stats.ticks / 2));
+
+    // The monitoring counters agree with the match.
+    const net::Metrics& metrics = server.metrics();
+    EXPECT_EQ(metrics.ticks.load(), static_cast<std::uint64_t>(result->stats.ticks));
+    EXPECT_EQ(metrics.matches_won.load(), 1u);
+    EXPECT_EQ(metrics.matches_drawn.load(), 0u);
+    EXPECT_FALSE(metrics.match_running.load());
+    EXPECT_GT(metrics.last_interval_mean_seconds.load(), 0.0);
 }
+
+namespace {
+
+// Send one raw HTTP request and return everything the server replies before closing.
+std::string http_get(std::uint16_t port, const std::string& path) {
+    const net::Socket socket = net::connect_tcp("127.0.0.1", port);
+    const std::string request = "GET " + path + " HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    net::send_all(socket, std::span(reinterpret_cast<const std::uint8_t*>(request.data()), request.size()));
+    std::vector<std::uint8_t> reply;
+    while (net::receive_some(socket, reply)) {
+    }
+    return {reply.begin(), reply.end()};
+}
+
+}  // namespace
+
+TEST(HttpServer, ServesHealthAndMetricsOverRealTcp) {
+    net::Metrics metrics;
+    metrics.ticks = 42;
+    const net::HttpServer http(0, metrics);
+
+    const std::string health = http_get(http.port(), "/health");
+    EXPECT_EQ(health.rfind("HTTP/1.1 200 OK", 0), 0u);
+
+    const std::string scraped = http_get(http.port(), "/metrics");
+    EXPECT_NE(scraped.find("arena_ticks_total 42\n"), std::string::npos);
+
+    EXPECT_EQ(http_get(http.port(), "/missing").rfind("HTTP/1.1 404", 0), 0u);
+}  // destructor stops the HTTP thread; TSan checks the shutdown is race-free
 
 TEST(Server, ConnectingToAClosedPortFails) {
     std::uint16_t unused_port = 0;

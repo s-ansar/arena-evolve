@@ -33,8 +33,9 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 - Raw POSIX TCP and UDP sockets (Linux), `std::thread`, mutexes and condition variables
 - Google Benchmark
 - Qt 6 Widgets, Network and Charts (the optional `arena_view` GUI)
+- Docker (multi-stage `Dockerfile`, `compose.yaml`) and a Prometheus-format `/metrics` endpoint
 
-Later: Docker, VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Grafana, Slurm, an S3-compatible object store.
+Later: VirtualBox and Vagrant, k3d (Kubernetes), Prometheus and Grafana, Slurm, an S3-compatible object store.
 
 ## Project structure
 
@@ -49,6 +50,8 @@ arena-evolve/
 ├── .github/workflows/    # CI: build and test, plus sanitizers
 ├── infra/                # Platform lab as code (VMs, Kubernetes, Slurm, storage, monitoring), coming
 ├── docs/                 # plan.md, packet capture, evolved genomes, later runbooks and reports
+├── Dockerfile            # Images: server, bot, fitness worker
+├── compose.yaml          # Server + evolved bot + chase bot in containers
 ├── CMakeLists.txt
 ├── CLAUDE.md             # Working rules and roadmap
 └── SKILLS.md             # Tracker: which skills are really used
@@ -118,6 +121,49 @@ How it works:
 - **How it is built:** `QUdpSocket::readyRead` and a 1-second `QTimer` (to renew the Watch lease) are connected to slots, so all networking runs on Qt's event loop with no extra threads. `ArenaWidget` paints with `QPainter`, flipping y because the arena's y points up. The chart uses Qt Charts (`QLineSeries`, `QValueAxis`).
 - **Latency as the GUI sees it:** about 6 ms mean, against 0.27 ms for `arena_watch` on the same machine. The GUI timestamps a datagram only when the event loop gets to it, which can be after a repaint, and under WSLg each repaint goes through a compositor. So this number is "time until the GUI noticed", not network latency. For network figures, use `arena_watch`.
 - `--screenshot file.png` saves the window after 3 seconds and exits. That is how the images above were made, and how the GUI was checked without anyone looking at it.
+
+## Monitoring: `/metrics` and `/health`
+
+`arena_server` also serves HTTP on a second port (default 8080):
+
+```bash
+curl localhost:8080/health     # "ok": the process is up and answering (for liveness probes)
+curl localhost:8080/metrics    # Prometheus text format
+```
+
+```
+arena_matches_total{result="win"} 3
+arena_matches_total{result="draw"} 0
+arena_ticks_total 634
+arena_late_ticks_total 0
+arena_watchers 0
+arena_match_running 1
+arena_last_match_tick_interval_mean_seconds 0.016667875
+arena_last_match_tick_jitter_seconds 0.000118907
+arena_last_match_lateness_max_seconds 0.000619512
+```
+
+- **Threads.** The simulation thread updates the numbers. A separate HTTP thread reads them when scraped. Every field is a `std::atomic` with `memory_order_relaxed`: each number stands alone, so no lock and no stronger ordering is needed, and the tick loop never waits for a scrape.
+- **The HTTP part is deliberately tiny.** One connection at a time, `GET` only, `Connection: close`, and a 1-second timeout so a silent client cannot hold the thread. Building the response is a pure function (`net::http_response`) with its own unit tests. A further test scrapes a real `HttpServer` over TCP.
+- These are the numbers the platform phase will feed to Prometheus and Grafana, for example an alert on `arena_late_ticks_total` rising.
+
+## Run it in containers (Docker)
+
+One multi-stage [`Dockerfile`](Dockerfile) builds the programs once in a full toolchain image, then copies only the binaries into small runtime images that run as a non-root user:
+
+| Image (`--target`) | Contains | Size |
+|---|---|---|
+| `server` | `arena_server` | 118 MB |
+| `bot` | `arena_bot` + `docs/genomes` | 118 MB |
+| `fitness` | `arena_fitness`, `arena_evolve` + genomes | 118 MB |
+
+The three images share the same Ubuntu base layer (about 78 MB of the 118 MB), so on disk they cost little more than one. Tests and benchmarks are switched off in the image build (`-DARENA_BUILD_TESTS=OFF`), so it downloads nothing.
+
+[`compose.yaml`](compose.yaml) runs the server plus an evolved bot and a chase bot that play match after match (`restart: always` brings a bot back when its match ends). Measured with `docker compose up` on the development laptop:
+
+- `/health` returns 200. After 12 seconds, `/metrics` showed 3 matches won, 0 drawn, 634 ticks and 0 late ticks, with 0.12 ms jitter.
+- `arena_watch` on the host, going through Docker's UDP port mapping, received 189 of 189 states. Mean latency was 0.51 ms, compared with 0.27 ms without Docker: the extra hop through Docker's port forwarding.
+- `docker run --rm arena-evolve/fitness` prints `fitness 90.2783 wins 32 draws 0 losses 0`, the same score as the native run, so the fitness worker gives identical results in a container.
 
 ## Design decisions
 

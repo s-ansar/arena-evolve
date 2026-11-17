@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "net/metrics.hpp"
 #include "net/socket.hpp"
 #include "sim/arena.hpp"
 #include "sim/loop.hpp"
@@ -41,6 +42,10 @@ public:
     // match in real time, then disconnect everyone.
     MatchResult run_match(sim::Arena arena, sim::Seconds dt, int max_ticks);
 
+    // Live counters for monitoring. Safe to read from any thread (all atomics); written only
+    // by the simulation thread.
+    const Metrics& metrics() const { return metrics_; }
+
 private:
     using Clock = std::chrono::steady_clock;
 
@@ -57,6 +62,7 @@ private:
     std::uint16_t port_;
     Socket udp_;
     std::vector<Watcher> watchers_;  // simulation thread only
+    Metrics metrics_;
 };
 
 }  // namespace net

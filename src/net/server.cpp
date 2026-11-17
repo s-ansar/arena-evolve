@@ -172,6 +172,9 @@ MatchResult Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) 
         connections.push_back(std::make_unique<Connection>(std::move(client), robot, commands));
     }
 
+    constexpr auto relaxed = std::memory_order_relaxed;  // see Metrics for why this is enough
+    metrics_.match_running.store(true, relaxed);
+
     // The tick hook runs on this (the simulation) thread after every step.
     MatchResult result;
     result.stats = sim::run_realtime(arena, dt, max_ticks, [&](sim::Arena& a, int tick) {
@@ -181,6 +184,8 @@ MatchResult Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) 
         }
         update_watchers();
         broadcast(frame);
+        metrics_.ticks.fetch_add(1, relaxed);
+        metrics_.watchers.store(watchers_.size(), relaxed);
         // Apply every command that arrived since the last tick. If one client sent several,
         // the last one wins. The new thrust takes effect from the next step.
         while (std::optional<RobotCommand> rc = commands.try_pop()) {
@@ -192,6 +197,14 @@ MatchResult Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) 
     // Destroying the connections sends each client the final state, then disconnects it.
     connections.clear();
     result.winner = sim::winner(arena);
+
+    const auto seconds = [](std::chrono::nanoseconds d) { return std::chrono::duration<double>(d).count(); };
+    (result.winner ? metrics_.matches_won : metrics_.matches_drawn).fetch_add(1, relaxed);
+    metrics_.late_ticks.fetch_add(static_cast<std::uint64_t>(result.stats.late_ticks), relaxed);
+    metrics_.last_interval_mean_seconds.store(seconds(result.stats.interval.mean()), relaxed);
+    metrics_.last_jitter_seconds.store(seconds(result.stats.interval.stddev()), relaxed);
+    metrics_.last_lateness_max_seconds.store(seconds(result.stats.lateness.max()), relaxed);
+    metrics_.match_running.store(false, relaxed);
     return result;
 }
 

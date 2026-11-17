@@ -1,0 +1,27 @@
+# A full match setup in containers:   docker compose up --build
+# The evolved bot and the chase bot play match after match ("restart: always" starts a bot
+# again when its match ends). From the host:
+#   curl localhost:8080/metrics                live counters
+#   ./build/arena_watch 127.0.0.1 5555 10      or arena_view, over UDP
+services:
+  server:
+    build: { context: ., target: server }
+    image: arena-evolve/server
+    ports:
+      - "5555:5555/tcp"
+      - "5555:5555/udp"
+      - "8080:8080/tcp"
+
+  evolved:
+    build: { context: ., target: bot }
+    image: arena-evolve/bot
+    # "server" is the server container's name on the Compose network (Docker's DNS).
+    command: ["server", "5555", "--genome", "/app/genomes/seed1.txt"]
+    restart: always  # also retries if it starts before the server is listening
+    depends_on: [server]
+
+  chaser:
+    image: arena-evolve/bot
+    command: ["server", "5555"]
+    restart: always
+    depends_on: [server, evolved]  # evolved builds the shared bot image first

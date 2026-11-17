@@ -1,12 +1,14 @@
-// arena_server [port]
+// arena_server [port] [metrics_port]
 // Plays two-robot matches forever: waits for two controller clients, runs a match in real
 // time at 60 ticks per second, prints the result, then waits for the next pair.
+// Serves /metrics (Prometheus) and /health over HTTP on metrics_port (default 8080).
 
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
+#include "net/http_server.hpp"
 #include "net/server.hpp"
 
 namespace {
@@ -26,12 +28,16 @@ void print_timing(const sim::RunStats& stats) {
 
 int main(int argc, char** argv) {
     const auto port = static_cast<std::uint16_t>(argc > 1 ? std::stoi(argv[1]) : 5555);
+    const auto metrics_port = static_cast<std::uint16_t>(argc > 2 ? std::stoi(argv[2]) : 8080);
     const sim::Seconds tick{1.0 / 60.0};
     const int max_ticks = 60 * 60;  // one minute; then it is a draw
 
     try {
         net::Server server(port);
-        std::cout << "arena_server listening on port " << server.port() << std::endl;
+        // Declared after server, so it is destroyed first: it reads server.metrics().
+        const net::HttpServer http(metrics_port, server.metrics());
+        std::cout << "arena_server listening on port " << server.port() << ", metrics on port " << http.port()
+                  << std::endl;
         while (true) {
             const net::MatchResult result = server.run_match(net::starting_arena(), tick, max_ticks);
             if (result.winner) {

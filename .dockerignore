@@ -1,0 +1,8 @@
+# Keep the build context small: Docker sends this whole folder to the builder.
+.git
+.github
+.claude
+build*
+docs/captures
+docs/images
+*.pcap

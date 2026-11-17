@@ -22,7 +22,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | Debugging and quality | clang-format | |
 | [x] | Concurrency | std::thread | `src/net/server.cpp` (reader and writer thread per client) |
 | [x] | Concurrency | Mutexes and condition variables | `src/net/thread_safe_queue.hpp`, `src/net/mailbox.hpp` |
-| [ ] | Concurrency | std::atomic | |
+| [x] | Concurrency | std::atomic | `src/net/metrics.hpp` (sim thread writes, HTTP thread reads; relaxed ordering explained) |
 | [x] | Concurrency | Thread pool | `src/ai/thread_pool.cpp` (`std::latch`, reuses `ThreadSafeQueue`); speed-up in README |
 | [x] | Concurrency | Thread-safe or lock-free queue | `src/net/thread_safe_queue.hpp` (mutex-based) |
 | [x] | Networking | TCP sockets | `src/net/socket.cpp` (raw POSIX, TCP_NODELAY, MSG_NOSIGNAL, SO_SNDTIMEO) |
@@ -43,7 +43,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | GUI | Qt Charts | `src/gui/main_window.cpp` (`QChart`, `QLineSeries`, `QValueAxis`) |
 | [ ] | Engineering practice | Git branches and pull requests | |
 | [x] | Engineering practice | GitHub Actions CI (Linux and Windows) | `.github/workflows/ci.yml` (5 jobs green) |
-| [ ] | Engineering practice | Docker | |
+| [x] | Engineering practice | Docker | `Dockerfile` (multi-stage, three targets, non-root user) |
 | [ ] | Engineering practice | Doxygen documentation | |
 | [ ] | Engineering practice | Design patterns (observer, state, factory) | |
 | [ ] | Engineering practice | GitHub Projects board (Agile) | |
@@ -56,7 +56,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | Linux | journalctl logs | |
 | [ ] | Linux | ufw firewall | |
 | [ ] | Linux | ss, ip and tcpdump | |
-| [ ] | Operations | Docker Compose | |
+| [x] | Operations | Docker Compose | `compose.yaml` (server + two bots); results in README |
 | [ ] | Operations | Prometheus metrics | |
 | [ ] | Operations | Grafana dashboard | |
 | [ ] | Operations | Deployment on an Ubuntu host (EC2 or Raspberry Pi) | |
@@ -71,7 +71,7 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | Kubernetes | Rolling update | |
 | [ ] | Kubernetes | Jobs | |
 | [ ] | Telemetry | node_exporter and kube-state-metrics | |
-| [ ] | Telemetry | Custom /metrics endpoint | |
+| [x] | Telemetry | Custom /metrics endpoint | `src/net/metrics.cpp`, `src/net/http_server.cpp` (Prometheus text format, /health) |
 | [ ] | Telemetry | Alertmanager rules | |
 | [ ] | Telemetry | SLO on a measured service level | |
 | [ ] | Telemetry | Loki logs (optional) | |
