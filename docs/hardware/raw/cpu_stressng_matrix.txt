@@ -1,0 +1,12 @@
+$ stress-ng --matrix 4 --timeout 20s --metrics-brief
+stress-ng: info:  [706] setting to a 20 secs run per stressor
+stress-ng: info:  [706] dispatching hogs: 4 matrix
+stress-ng: info:  [707] matrix: using 192KB per stressor instance (total 768KB of 2.75GB available memory)
+stress-ng: metrc: [706] stressor       bogo ops real time  usr time  sys time   bogo ops/s     bogo ops/s
+stress-ng: metrc: [706]                           (secs)    (secs)    (secs)   (real time) (usr+sys time)
+stress-ng: metrc: [706] matrix           168324     20.00     79.65      0.04      8414.37        2112.16
+stress-ng: info:  [706] skipped: 0
+stress-ng: info:  [706] passed: 4: matrix (4)
+stress-ng: info:  [706] failed: 0
+stress-ng: info:  [706] metrics untrustworthy: 0
+stress-ng: info:  [706] successful run completed in 20.02 secs

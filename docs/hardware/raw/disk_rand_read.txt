@@ -1,0 +1,34 @@
+$ fio --name=disk_rand_read --directory=/home/hp/fio-d0 --rw=randread --bs=4k --iodepth=32 --size=1G --ioengine=libaio --direct=1 --runtime=20 --time_based --group_reporting
+disk_rand_read: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=32
+fio-3.41
+Starting 1 process
+disk_rand_read: Laying out IO file (1 file / 1024MiB)
+
+disk_rand_read: (groupid=0, jobs=1): err= 0: pid=748: Tue Nov 17 14:38:31 2026
+  read: IOPS=25.5k, BW=99.7MiB/s (105MB/s)(1994MiB/20006msec)
+    slat (nsec): min=1316, max=14451k, avg=6944.48, stdev=57852.65
+    clat (usec): min=111, max=134704, avg=1245.33, stdev=3737.58
+     lat (usec): min=122, max=134707, avg=1252.27, stdev=3738.57
+    clat percentiles (usec):
+     |  1.00th=[   277],  5.00th=[   404], 10.00th=[   482], 20.00th=[   578],
+     | 30.00th=[   644], 40.00th=[   717], 50.00th=[   791], 60.00th=[   881],
+     | 70.00th=[   996], 80.00th=[  1172], 90.00th=[  1532], 95.00th=[  2089],
+     | 99.00th=[  9503], 99.50th=[ 18482], 99.90th=[ 68682], 99.95th=[ 71828],
+     | 99.99th=[101188]
+   bw (  KiB/s): min= 2000, max=178752, per=100.00%, avg=102089.95, stdev=48543.04, samples=40
+   iops        : min=  500, max=44688, avg=25522.47, stdev=12135.75, samples=40
+  lat (usec)   : 250=0.58%, 500=11.20%, 750=33.13%, 1000=25.22%
+  lat (msec)   : 2=24.48%, 4=3.20%, 10=1.22%, 20=0.55%, 50=0.20%
+  lat (msec)   : 100=0.21%, 250=0.01%
+  cpu          : usr=7.26%, sys=22.17%, ctx=116170, majf=0, minf=43
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=100.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.1%, 64=0.0%, >=64=0.0%
+     issued rwts: total=510511,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=32
+
+Run status group 0 (all jobs):
+   READ: bw=99.7MiB/s (105MB/s), 99.7MiB/s-99.7MiB/s (105MB/s-105MB/s), io=1994MiB (2091MB), run=20006-20006msec
+
+Disk stats (read/write):
+  sdd: ios=507702/39, sectors=4061616/464, merge=0/18, ticks=581914/598, in_queue=582523, util=96.49%

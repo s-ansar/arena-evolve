@@ -1,0 +1,24 @@
+$ docker run --rm ubuntu:24.04 bash -c apt-get update -qq > /dev/null && apt-get install -y -qq iperf3 > /dev/null 2>&1 && iperf3 --client 172.17.0.1 --port 5202 --time 10
+Unable to find image 'ubuntu:24.04' locally
+24.04: Pulling from library/ubuntu
+Digest: sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8
+Status: Downloaded newer image for ubuntu:24.04
+Connecting to host 172.17.0.1, port 5202
+[  5] local 172.17.0.2 port 53448 connected to 172.17.0.1 port 5202
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.01   sec  1.17 GBytes  9.99 Gbits/sec  178   1005 KBytes       
+[  5]   1.01-2.00   sec   452 MBytes  3.82 Gbits/sec    0   1.04 MBytes       
+[  5]   2.00-3.00   sec   928 MBytes  7.78 Gbits/sec    0   1.16 MBytes       
+[  5]   3.00-4.00   sec  1.57 GBytes  13.5 Gbits/sec   25   1.29 MBytes       
+[  5]   4.00-5.00   sec  1.97 GBytes  17.0 Gbits/sec    3   1.00 MBytes       
+[  5]   5.00-6.01   sec  2.44 GBytes  20.8 Gbits/sec    0   1.09 MBytes       
+[  5]   6.01-7.00   sec  3.19 GBytes  27.6 Gbits/sec    1   1.12 MBytes       
+[  5]   7.00-8.00   sec  2.88 GBytes  24.8 Gbits/sec  282    822 KBytes       
+[  5]   8.00-9.04   sec  3.47 GBytes  28.7 Gbits/sec    1   1.59 MBytes       
+[  5]   9.04-10.01  sec  2.96 GBytes  26.4 Gbits/sec    1   1.60 MBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.01  sec  21.1 GBytes  18.1 Gbits/sec  491             sender
+[  5]   0.00-10.01  sec  21.1 GBytes  18.1 Gbits/sec                  receiver
+
+iperf Done.

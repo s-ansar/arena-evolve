@@ -48,8 +48,8 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | Engineering practice | Design patterns (observer, state, factory) | |
 | [ ] | Engineering practice | GitHub Projects board (Agile) | |
 | [ ] | Hardware (optional) | Arduino or ESP32 over serial | |
-| [ ] | Linux | Daily development on Ubuntu (WSL2) | |
-| [ ] | Linux | Bash scripting | |
+| [x] | Linux | Daily development on Ubuntu (WSL2) | all builds, tests and measurements run in WSL2 Ubuntu 26.04 |
+| [x] | Linux | Bash scripting | `scripts/check.sh`, `infra/d0/*.sh` |
 | [ ] | Linux | File permissions and processes | |
 | [ ] | Linux | ssh with key-only login | |
 | [ ] | Linux | systemd service | |
@@ -84,11 +84,11 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [ ] | HPC | University BlueBEAR cluster (if access allowed) | |
 | [ ] | Storage | S3-compatible distributed object store | |
 | [ ] | Storage | Erasure coding and node-failure test | |
-| [ ] | Storage | fio disk benchmarks | |
+| [x] | Storage | fio disk benchmarks | `infra/d0/baseline.sh`; slow-write investigation in `docs/hardware_map.md` |
 | [ ] | Storage | Ceph/CRUSH concepts (reading only) | |
-| [ ] | Hardware | Hardware map (lscpu, lsblk, free, numactl, lspci) | |
-| [ ] | Hardware | sysbench and stress-ng | |
-| [ ] | Hardware | iperf3 network benchmark | |
+| [x] | Hardware | Hardware map (lscpu, lsblk, free, numactl, lspci) | `infra/d0/inventory.sh`, `docs/hardware_map.md` |
+| [x] | Hardware | sysbench and stress-ng | `infra/d0/baseline.sh`; CPU and memory results in `docs/hardware_map.md` |
+| [x] | Hardware | iperf3 network benchmark | loopback vs Docker bridge in `docs/hardware_map.md` |
 | [ ] | Hardware | Raspberry Pi cluster nodes (optional) | |
 | [ ] | Reliability | tc netem fault injection | |
 | [ ] | Reliability | Game-day drills | |

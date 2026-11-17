@@ -1,4 +1,4 @@
-# Arena Evolve: handoff (2026-11-17, application weeks 1-5 done)
+# Arena Evolve: handoff (2026-11-17, application done, platform D0 done)
 
 Read `CLAUDE.md`, `SKILLS.md` and `docs/plan.md` first. Rules there still apply: keep code simple, explain each step briefly, owner must be able to explain every line, never claim a skill not backed by real code.
 
@@ -16,7 +16,8 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - **Decision:** raw POSIX sockets, server Linux-only; reasons in README "Design decisions". Socket code is excluded on Windows in `CMakeLists.txt`.
 - **Tests:** 79 (`sim_tests`, `net_core_tests`, `ai_tests`, `server_tests` Linux-only), including an end-to-end match over TCP plus a UDP watcher, thread-pool determinism (parallel == serial fitness), "best fitness never drops", the evolution CSV, metrics/HTTP routing and a real HTTP scrape. The GUI has no unit tests; it is checked by the screenshot run.
 - **Earlier review findings:** all 5 resolved.
-- **SKILLS.md:** 33 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
+- **Platform D0 done:** `infra/d0/` (inventory, baseline, summarise, Windows write test), `make hardware`, `docs/hardware_map.md` (spec vs measured; SSD writes ~70 MB/s traced to the QLC drive, not WSL). Tools installed: sysbench, stress-ng, fio, iperf3, numactl, pciutils, hwloc.
+- **SKILLS.md:** 39 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
 
 ## Environment
 - WSL2 Ubuntu 26.04 (disk `D:\wsl\Ubuntu`), capped at 4 GB / 4 CPUs by `C:\Users\hp\.wslconfig`. systemd enabled, default user `hp`.
@@ -33,7 +34,7 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - The server accepts clients one by one with no timeout and plays one match at a time.
 
 ## Next steps
-1. Arena Platform (project D in `docs/plan.md`), starting with D0 (hardware map and baseline benchmarks) or D2/D3, which can reuse the images and `/metrics` directly. Ask the owner which phase first.
+1. Arena Platform phase D1 (Linux and VMs: Vagrant + VirtualBox on Windows, 2 Ubuntu VMs, systemd service, hardened ssh), then D2 (k3d) and D3 (Prometheus/Grafana scraping `/metrics`). Budgets from `docs/hardware_map.md`: 4 vCPU, 3.8 GiB in WSL, disk writes ~70 MB/s.
 2. Run clang-format over the code (one commit), then tick it.
 3. Possible AI follow-ups: fresh random training angles each generation (seed 4 overfitted), evolve against the best previous genome (self-play).
 

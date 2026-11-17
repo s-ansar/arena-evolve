@@ -1,0 +1,87 @@
+Inventory taken 2026-11-17T14:35Z on 6.18.58.1-microsoft-standard-WSL2
+
+===== CPU (lscpu) =====
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           39 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  4
+On-line CPU(s) list:                     0-3
+Vendor ID:                               GenuineIntel
+Model name:                              11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz
+CPU family:                              6
+Model:                                   140
+Thread(s) per core:                      2
+Core(s) per socket:                      2
+Socket(s):                               1
+Stepping:                                1
+BogoMIPS:                                4838.40
+Virtualization:                          VT-x
+Hypervisor vendor:                       Microsoft
+Virtualization type:                     full
+L1d cache:                               96 KiB (2 instances)
+L1i cache:                               64 KiB (2 instances)
+L2 cache:                                2.5 MiB (2 instances)
+L3 cache:                                8 MiB (1 instance)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-3
+
+===== Selected CPU features =====
+avx2: yes
+avx512f: yes
+aes: yes
+sha_ni: yes
+
+===== Memory (free) =====
+               total        used        free      shared  buff/cache   available
+Mem:           3.8Gi       568Mi       2.7Gi       4.1Mi       682Mi       3.3Gi
+Swap:          1.0Gi          0B       1.0Gi
+
+===== NUMA (numactl --hardware) =====
+available: 1 nodes (0)
+node 0 cpus: 0 1 2 3
+node 0 size: 3918 MB
+node 0 free: 2805 MB
+node distances:
+node     0 
+   0:   10 
+
+===== Topology (lstopo) =====
+Machine (3919MB total) + Package L#0
+  NUMANode L#0 (P#0 3919MB)
+  L3 L#0 (8192KB)
+    L2 L#0 (1280KB) + L1d L#0 (48KB) + L1i L#0 (32KB) + Core L#0
+      PU L#0 (P#0)
+      PU L#1 (P#1)
+    L2 L#1 (1280KB) + L1d L#1 (48KB) + L1i L#1 (32KB) + Core L#1
+      PU L#2 (P#2)
+      PU L#3 (P#3)
+
+===== Block devices (lsblk) =====
+NAME   SIZE TYPE FSTYPE MOUNTPOINTS
+sda  722.9M disk ext4   
+sdb   97.4M disk ext4   /usr/src/linux-headers-6.18.58.1-microsoft-standard-WSL2
+sdc      1G disk swap   [SWAP]
+sdd      1T disk ext4   /var/lib/docker
+                        /mnt/wslg/distro
+                        /
+
+===== File systems (df) =====
+Filesystem     Type  Size  Used Avail Use% Mounted on
+/dev/sdd       ext4 1007G  4.6G  952G   1% /
+C:\            9p    155G  130G   26G  84% /mnt/c
+
+===== PCI devices (lspci) =====
+1c20:00:00.0 System peripheral: Red Hat, Inc. Virtio 1.0 file system (rev 01)
+5582:00:00.0 SCSI storage controller: Red Hat, Inc. Virtio 1.0 console (rev 01)
+9a6a:00:00.0 3D controller: Microsoft Corporation Basic Render Driver
+fec4:00:00.0 3D controller: Microsoft Corporation Basic Render Driver
+
+===== GPU (nvidia-smi through WSL) =====
+name, memory.total [MiB], driver_version
+NVIDIA GeForce MX350, 2048 MiB, 581.83
+
+===== Network interfaces (ip -brief addr) =====
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128 
+eth0             UP             172.26.223.90/20 fe80::215:5dff:fee7:9df0/64 
+docker0          DOWN           172.17.0.1/16 

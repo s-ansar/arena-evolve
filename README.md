@@ -17,7 +17,7 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 | AI | Neural-network controller evolved by a genetic algorithm | Done |
 | AI | Parallel fitness evaluation, baseline comparison | Done |
 | GUI | Qt live arena view and fitness charts | Done |
-| Platform | Hardware map and benchmarks (CPU, memory, disk, network) | Planned |
+| Platform | Hardware map and benchmarks (CPU, memory, disk, network) | Done ([docs/hardware_map.md](docs/hardware_map.md)) |
 | Platform | Ubuntu VMs with Vagrant, systemd service, hardened ssh | Planned |
 | Platform | Kubernetes (k3d) cluster running the server | Planned |
 | Platform | Prometheus, Grafana and alerts for tick latency and node health | Planned |
@@ -48,7 +48,8 @@ arena-evolve/
 ├── bench/                # Google Benchmark microbenchmarks
 ├── tests/                # GoogleTest unit tests
 ├── .github/workflows/    # CI: build and test, plus sanitizers
-├── infra/                # Platform lab as code (VMs, Kubernetes, Slurm, storage, monitoring), coming
+├── infra/                # Platform lab as code: d0/ hardware and benchmarks; VMs, Kubernetes, Slurm next
+├── Makefile              # Lab entry points (make hardware; make lab-up later)
 ├── docs/                 # plan.md, packet capture, evolved genomes, later runbooks and reports
 ├── Dockerfile            # Images: server, bot, fitness worker
 ├── compose.yaml          # Server + evolved bot + chase bot in containers

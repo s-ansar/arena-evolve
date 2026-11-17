@@ -1,0 +1,30 @@
+$ fio --name=mntc4k --directory=/mnt/c/Users/hp/fio-d0-tmp --rw=randread --bs=4k --size=256M --ioengine=psync --runtime=20 --time_based
+mntc4k: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=psync, iodepth=1
+fio-3.41
+Starting 1 process
+mntc4k: Laying out IO file (1 file / 256MiB)
+
+mntc4k: (groupid=0, jobs=1): err= 0: pid=779: Tue Nov 17 14:40:23 2026
+  read: IOPS=4759, BW=18.6MiB/s (19.5MB/s)(372MiB/20001msec)
+    clat (usec): min=83, max=131074, avg=207.86, stdev=479.42
+     lat (usec): min=83, max=131075, avg=208.06, stdev=479.44
+    clat percentiles (usec):
+     |  1.00th=[  108],  5.00th=[  117], 10.00th=[  123], 20.00th=[  135],
+     | 30.00th=[  145], 40.00th=[  157], 50.00th=[  169], 60.00th=[  186],
+     | 70.00th=[  208], 80.00th=[  251], 90.00th=[  330], 95.00th=[  408],
+     | 99.00th=[  668], 99.50th=[  840], 99.90th=[ 1418], 99.95th=[ 2073],
+     | 99.99th=[ 4817]
+   bw (  KiB/s): min= 7240, max=28400, per=100.00%, avg=19235.97, stdev=6447.75, samples=39
+   iops        : min= 1810, max= 7100, avg=4808.97, stdev=1611.93, samples=39
+  lat (usec)   : 100=0.15%, 250=79.72%, 500=17.73%, 750=1.69%, 1000=0.44%
+  lat (msec)   : 2=0.22%, 4=0.04%, 10=0.01%, 20=0.01%, 50=0.01%
+  lat (msec)   : 250=0.01%
+  cpu          : usr=1.90%, sys=16.33%, ctx=95226, majf=0, minf=10
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=95187,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=18.6MiB/s (19.5MB/s), 18.6MiB/s-18.6MiB/s (19.5MB/s-19.5MB/s), io=372MiB (390MB), run=20001-20001msec

@@ -1,0 +1,29 @@
+$ fio --name=mntc --directory=/mnt/c/Users/hp/fio-d0-tmp --rw=read --bs=1M --size=512M --ioengine=psync --runtime=20 --time_based
+mntc: (g=0): rw=read, bs=(R) 1024KiB-1024KiB, (W) 1024KiB-1024KiB, (T) 1024KiB-1024KiB, ioengine=psync, iodepth=1
+fio-3.41
+Starting 1 process
+mntc: Laying out IO file (1 file / 512MiB)
+
+mntc: (groupid=0, jobs=1): err= 0: pid=772: Tue Nov 17 14:39:30 2026
+  read: IOPS=111, BW=111MiB/s (117MB/s)(2223MiB/20001msec)
+    clat (msec): min=3, max=530, avg= 8.99, stdev=18.18
+     lat (msec): min=3, max=530, avg= 8.99, stdev=18.18
+    clat percentiles (msec):
+     |  1.00th=[    4],  5.00th=[    4], 10.00th=[    5], 20.00th=[    5],
+     | 30.00th=[    6], 40.00th=[    6], 50.00th=[    7], 60.00th=[    7],
+     | 70.00th=[    9], 80.00th=[   11], 90.00th=[   14], 95.00th=[   17],
+     | 99.00th=[   43], 99.50th=[   79], 99.90th=[  376], 99.95th=[  388],
+     | 99.99th=[  531]
+   bw (  KiB/s): min= 2048, max=260096, per=100.00%, avg=114057.85, stdev=69003.28, samples=39
+   iops        : min=    2, max=  254, avg=111.38, stdev=67.39, samples=39
+  lat (msec)   : 4=9.36%, 10=67.12%, 20=20.11%, 50=2.61%, 100=0.49%
+  lat (msec)   : 250=0.18%, 500=0.09%, 750=0.04%
+  cpu          : usr=0.14%, sys=5.62%, ctx=37798, majf=0, minf=265
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=2223,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=111MiB/s (117MB/s), 111MiB/s-111MiB/s (117MB/s-117MB/s), io=2223MiB (2331MB), run=20001-20001msec
