@@ -39,8 +39,15 @@ public:
     std::uint16_t port() const { return port_; }
 
     // Wait for one client per robot in the arena (client k controls robot k), play one
-    // match in real time, then disconnect everyone.
-    MatchResult run_match(sim::Arena arena, sim::Seconds dt, int max_ticks);
+    // match in real time, then disconnect everyone. Returns nothing if a stop was requested
+    // before the match could start.
+    std::optional<MatchResult> run_match(sim::Arena arena, sim::Seconds dt, int max_ticks);
+
+    // Graceful drain, safe to call from any thread (used on SIGTERM): start no new matches,
+    // but let a match that is already running finish. /ready then reports 503, so
+    // Kubernetes stops sending new players here.
+    void request_stop();
+    bool stopping() const { return metrics_.draining.load(std::memory_order_relaxed); }
 
     // Live counters for monitoring. Safe to read from any thread (all atomics); written only
     // by the simulation thread.

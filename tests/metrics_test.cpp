@@ -29,10 +29,21 @@ TEST(Metrics, HttpRoutes) {
     EXPECT_EQ(health.rfind("HTTP/1.1 200 OK\r\n", 0), 0u);
     EXPECT_NE(health.find("\r\n\r\nok\n"), std::string::npos);
 
+    EXPECT_EQ(net::http_response("GET /ready HTTP/1.1\r\n\r\n", m).rfind("HTTP/1.1 200 OK", 0), 0u);
     EXPECT_EQ(net::http_response("GET /nope HTTP/1.1\r\n\r\n", m).rfind("HTTP/1.1 404", 0), 0u);
     EXPECT_EQ(net::http_response("POST /metrics HTTP/1.1\r\n\r\n", m).rfind("HTTP/1.1 405", 0), 0u);
     EXPECT_EQ(net::http_response("garbage", m).rfind("HTTP/1.1 400", 0), 0u);
     EXPECT_EQ(net::http_response("", m).rfind("HTTP/1.1 400", 0), 0u);
+}
+
+TEST(Metrics, ReadyTurnsTo503WhenDraining) {
+    net::Metrics m;
+    m.draining = true;
+    const std::string ready = net::http_response("GET /ready HTTP/1.1\r\n\r\n", m);
+    EXPECT_EQ(ready.rfind("HTTP/1.1 503 Service Unavailable\r\n", 0), 0u);
+    EXPECT_NE(net::render_prometheus(m).find("arena_draining 1\n"), std::string::npos);
+    // Liveness stays OK: a draining server is healthy, it is just not taking new games.
+    EXPECT_EQ(net::http_response("GET /health HTTP/1.1\r\n\r\n", m).rfind("HTTP/1.1 200 OK", 0), 0u);
 }
 
 TEST(Metrics, ContentLengthMatchesTheBody) {

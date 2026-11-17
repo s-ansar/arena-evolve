@@ -8,6 +8,11 @@
 #include <iostream>
 #include <string>
 
+#include <pthread.h>
+
+#include <csignal>
+#include <thread>
+
 #include "net/http_server.hpp"
 #include "net/server.hpp"
 
@@ -32,21 +37,46 @@ int main(int argc, char** argv) {
     const sim::Seconds tick{1.0 / 60.0};
     const int max_ticks = 60 * 60;  // one minute; then it is a draw
 
+    // Graceful shutdown. Block SIGTERM and SIGINT in this thread BEFORE any other thread
+    // starts (new threads inherit the mask), then let one dedicated thread wait for them with
+    // sigwait(). The signal is then handled as ordinary code on that thread, instead of in
+    // an async signal handler where almost nothing is safe to call.
+    sigset_t stop_signals;
+    sigemptyset(&stop_signals);
+    sigaddset(&stop_signals, SIGTERM);  // what Kubernetes and systemd send to stop a process
+    sigaddset(&stop_signals, SIGINT);   // Ctrl+C
+    pthread_sigmask(SIG_BLOCK, &stop_signals, nullptr);
+
     try {
         net::Server server(port);
         // Declared after server, so it is destroyed first: it reads server.metrics().
         const net::HttpServer http(metrics_port, server.metrics());
         std::cout << "arena_server listening on port " << server.port() << ", metrics on port " << http.port()
                   << std::endl;
-        while (true) {
-            const net::MatchResult result = server.run_match(net::starting_arena(), tick, max_ticks);
-            if (result.winner) {
-                std::cout << "match over: robot " << *result.winner << " wins" << std::endl;
+
+        // Detached on purpose: it does nothing but wait for a signal, and the process exit
+        // ends it if no signal ever comes.
+        std::thread([&server, stop_signals] {
+            int signal_number = 0;
+            sigwait(&stop_signals, &signal_number);
+            std::cout << "arena_server: signal " << signal_number
+                      << ", draining: finishing the current match, starting no new ones" << std::endl;
+            server.request_stop();
+        }).detach();
+
+        while (!server.stopping()) {
+            const std::optional<net::MatchResult> result = server.run_match(net::starting_arena(), tick, max_ticks);
+            if (!result) {
+                break;  // stopped while waiting for players
+            }
+            if (result->winner) {
+                std::cout << "match over: robot " << *result->winner << " wins" << std::endl;
             } else {
                 std::cout << "match over: draw" << std::endl;
             }
-            print_timing(result.stats);
+            print_timing(result->stats);
         }
+        std::cout << "arena_server: drained, exiting" << std::endl;
     } catch (const std::exception& error) {
         std::cerr << "arena_server: " << error.what() << std::endl;
         return EXIT_FAILURE;

@@ -31,7 +31,12 @@ TEST(Server, ChaserPushesAPassiveRobotOutOfTheRing) {
 
     // The server is already listening, so these connect even before it calls accept().
     int chaser_id = -1;
-    std::thread chaser([&] { chaser_id = net::play_match("127.0.0.1", server.port(), ai::chase); });
+    bool chaser_saw_the_end = false;
+    std::thread chaser([&] {
+        const net::MatchReport report = net::play_match("127.0.0.1", server.port(), ai::chase);
+        chaser_id = report.robot;
+        chaser_saw_the_end = report.finished;
+    });
     std::thread passive([&] { net::play_match("127.0.0.1", server.port(), {}); });
 
     // Count State datagrams until the match is over. match_done is atomic because this
@@ -60,6 +65,7 @@ TEST(Server, ChaserPushesAPassiveRobotOutOfTheRing) {
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(result->winner.has_value()) << "match ended in a draw or timed out";
     EXPECT_EQ(static_cast<int>(*result->winner), chaser_id);
+    EXPECT_TRUE(chaser_saw_the_end);  // the client got the final, decided state
     EXPECT_EQ(result->stats.lateness.count(), static_cast<std::size_t>(result->stats.ticks));
 
     // UDP may drop packets, so do not demand every tick. Locally nearly all should arrive.
@@ -68,6 +74,7 @@ TEST(Server, ChaserPushesAPassiveRobotOutOfTheRing) {
     // The monitoring counters agree with the match.
     const net::Metrics& metrics = server.metrics();
     EXPECT_EQ(metrics.ticks.load(), static_cast<std::uint64_t>(result->stats.ticks));
+    EXPECT_EQ(metrics.matches_started.load(), 1u);
     EXPECT_EQ(metrics.matches_won.load(), 1u);
     EXPECT_EQ(metrics.matches_drawn.load(), 0u);
     EXPECT_FALSE(metrics.match_running.load());
@@ -110,4 +117,59 @@ TEST(Server, ConnectingToAClosedPortFails) {
         unused_port = server.port();
     }  // server destroyed: nothing listens on that port any more
     EXPECT_THROW(net::play_match("127.0.0.1", unused_port, {}), std::system_error);
+}
+
+// ---- graceful drain (what makes a Kubernetes rolling update safe) ----
+
+TEST(Server, StopWhileWaitingForPlayersStartsNoMatch) {
+    net::Server server(0);
+    std::optional<net::MatchResult> result = net::MatchResult{};  // must become nullopt
+    std::thread server_thread([&] { result = server.run_match(net::starting_arena(), sim::Seconds{0.01}, 100); });
+
+    // One player connects; the second never comes. Then a stop is requested.
+    std::thread lonely([&] {
+        // No Welcome is ever sent (the match never started), so play_match throws.
+        EXPECT_THROW(net::play_match("127.0.0.1", server.port(), {}), net::ProtocolError);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds{200});
+    server.request_stop();
+
+    server_thread.join();
+    lonely.join();
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(server.metrics().matches_started.load(), 0u);
+    EXPECT_TRUE(server.stopping());
+}
+
+TEST(Server, StopDuringAMatchLetsItFinish) {
+    net::Server server(0);
+    std::optional<net::MatchResult> result;
+    std::thread server_thread([&] { result = server.run_match(net::starting_arena(), sim::Seconds{0.01}, 1000); });
+
+    net::MatchReport chaser_report;
+    net::MatchReport passive_report;
+    std::thread chaser([&] { chaser_report = net::play_match("127.0.0.1", server.port(), ai::chase); });
+    std::thread passive([&] { passive_report = net::play_match("127.0.0.1", server.port(), {}); });
+
+    // Wait until the match is really running, then ask the server to stop.
+    while (!server.metrics().match_running.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    server.request_stop();
+    EXPECT_EQ(net::http_response("GET /ready HTTP/1.1\r\n\r\n", server.metrics()).rfind("HTTP/1.1 503", 0), 0u);
+
+    server_thread.join();
+    chaser.join();
+    passive.join();
+
+    // The match ran to its natural end: a winner, and both clients saw the final state.
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->winner.has_value());
+    EXPECT_TRUE(chaser_report.finished);
+    EXPECT_TRUE(passive_report.finished);
+    EXPECT_EQ(server.metrics().matches_started.load(), 1u);
+    EXPECT_EQ(server.metrics().matches_won.load(), 1u);
+
+    // And no new match starts after the stop.
+    EXPECT_FALSE(server.run_match(net::starting_arena(), sim::Seconds{0.01}, 10).has_value());
 }

@@ -35,12 +35,16 @@ std::string render_prometheus(const Metrics& m) {
         << "# TYPE arena_matches_total counter\n"
         << "arena_matches_total{result=\"win\"} " << m.matches_won.load(relaxed) << '\n'
         << "arena_matches_total{result=\"draw\"} " << m.matches_drawn.load(relaxed) << '\n';
+    metric(out, "arena_matches_started_total", "counter", "Matches started (all players connected).",
+           m.matches_started.load(relaxed));
     metric(out, "arena_ticks_total", "counter", "Simulation ticks run.", m.ticks.load(relaxed));
     metric(out, "arena_late_ticks_total", "counter", "Ticks that started after their deadline.",
            m.late_ticks.load(relaxed));
     metric(out, "arena_watchers", "gauge", "UDP watchers currently registered.", m.watchers.load(relaxed));
     metric(out, "arena_match_running", "gauge", "1 while a match is being played.",
            m.match_running.load(relaxed) ? 1 : 0);
+    metric(out, "arena_draining", "gauge", "1 once a graceful stop was requested.",
+           m.draining.load(relaxed) ? 1 : 0);
     metric(out, "arena_last_match_tick_interval_mean_seconds", "gauge",
            "Mean time between tick starts in the last match.", m.last_interval_mean_seconds.load(relaxed));
     metric(out, "arena_last_match_tick_jitter_seconds", "gauge",
@@ -69,6 +73,11 @@ std::string http_response(std::string_view request, const Metrics& metrics) {
     }
     if (path == "/health") {
         return response("200 OK", "text/plain", "ok\n");
+    }
+    if (path == "/ready") {
+        return metrics.draining.load(std::memory_order_relaxed)
+                   ? response("503 Service Unavailable", "text/plain", "draining\n")
+                   : response("200 OK", "text/plain", "ready\n");
     }
     return response("404 Not Found", "text/plain", "not found\n");
 }

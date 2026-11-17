@@ -155,24 +155,50 @@ void Server::broadcast(const std::vector<std::uint8_t>& frame) {
     }
 }
 
-MatchResult Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) {
+void Server::request_stop() {
+    metrics_.draining.store(true, std::memory_order_relaxed);
+    // Unblocks accept() if the simulation thread is waiting for players. A match already
+    // running does not use the listener, so it carries on to the end.
+    listener_.shutdown_both();
+}
+
+std::optional<MatchResult> Server::run_match(sim::Arena arena, sim::Seconds dt, int max_ticks) {
+    constexpr auto relaxed = std::memory_order_relaxed;  // see Metrics for why this is enough
+
+    // Accept one client per robot. If a stop is requested while waiting, accept() fails and
+    // no match starts: the clients already accepted are simply disconnected, and since they
+    // never got a Welcome, they know no game was lost.
+    std::vector<Socket> players;
+    try {
+        while (players.size() < arena.robots.size()) {
+            if (stopping()) {
+                return std::nullopt;
+            }
+            players.push_back(accept_client(listener_));
+        }
+    } catch (const std::system_error&) {
+        if (stopping()) {
+            return std::nullopt;
+        }
+        throw;
+    }
+
     // Declared before the connections, so it is destroyed after them: reader threads push
     // into it until their Connection is destroyed.
     ThreadSafeQueue<RobotCommand> commands;
     std::vector<std::unique_ptr<Connection>> connections;
-
-    // Accept one client per robot. The Welcome goes out before the client's threads start,
-    // so it is always the first message the client sees.
-    for (std::size_t robot = 0; robot < arena.robots.size(); ++robot) {
-        Socket client = accept_client(listener_);
+    for (std::size_t robot = 0; robot < players.size(); ++robot) {
+        Socket& client = players[robot];
         // A client that stops reading for a second is treated as gone, so its writer thread
         // cannot hang and stop the match from shutting down.
         set_send_timeout(client, std::chrono::seconds{1});
+        // The Welcome goes out before the client's threads start, so it is always the first
+        // message the client sees, and only once everyone is here: Welcome means "game on".
         send_all(client, encode(Welcome{static_cast<std::uint8_t>(robot)}));
         connections.push_back(std::make_unique<Connection>(std::move(client), robot, commands));
     }
 
-    constexpr auto relaxed = std::memory_order_relaxed;  // see Metrics for why this is enough
+    metrics_.matches_started.fetch_add(1, relaxed);
     metrics_.match_running.store(true, relaxed);
 
     // The tick hook runs on this (the simulation) thread after every step.
