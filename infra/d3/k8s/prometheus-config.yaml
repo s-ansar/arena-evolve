@@ -1,0 +1,84 @@
+# Prometheus configuration and rules, as ConfigMaps (monitoring as code).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 5s       # short, so experiments show up quickly
+      evaluation_interval: 5s
+    rule_files: [/etc/prometheus/rules/*.yml]
+    alerting:
+      alertmanagers:
+        - static_configs: [{ targets: ["alertmanager.monitoring.svc:9093"] }]
+    scrape_configs:
+      # The game server's own /metrics (Service in front of the arena-server pod).
+      - job_name: arena
+        static_configs: [{ targets: ["arena-server.arena.svc:8080"] }]
+      # node_exporter runs on every node (DaemonSet). A headless Service gives one DNS A
+      # record per pod, so DNS service discovery finds all of them without API access.
+      - job_name: node
+        dns_sd_configs: [{ names: ["node-exporter.monitoring.svc"], type: A, port: 9100 }]
+      # Cluster object state: pods, restarts, deployments...
+      - job_name: kube-state-metrics
+        static_configs: [{ targets: ["kube-state-metrics.monitoring.svc:8080"] }]
+      - job_name: prometheus
+        static_configs: [{ targets: ["localhost:9090"] }]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  arena.yml: |
+    groups:
+      - name: arena-slo
+        rules:
+          # SLI: the share of ticks that started on time, over the last 5 minutes.
+          # (Late ticks are added to the counter at the end of each match.)
+          - record: arena:tick_on_time:ratio_rate5m
+            expr: |
+              1 - (sum(rate(arena_late_ticks_total[5m])) / sum(rate(arena_ticks_total[5m])))
+          - record: arena:matches:rate5m
+            expr: sum(rate(arena_matches_total[5m]))
+
+          # SLO: 99.9% of ticks on time. Alert if the last 5 minutes are below that for 1 minute.
+          - alert: ArenaTickDeadlineSLOBreached
+            expr: arena:tick_on_time:ratio_rate5m < 0.999 and sum(rate(arena_ticks_total[5m])) > 0
+            for: 1m
+            labels: { severity: page }
+            annotations:
+              summary: "Only {{ $value | humanizePercentage }} of ticks started on time (SLO 99.9%)"
+              runbook: docs/runbooks/tick-deadline-slo.md
+
+          - alert: ArenaServerDown
+            expr: up{job="arena"} == 0 or absent(up{job="arena"})
+            for: 30s
+            labels: { severity: page }
+            annotations:
+              summary: "Prometheus cannot scrape the arena server"
+              runbook: docs/runbooks/arena-server-down.md
+
+          - alert: ArenaNoMatchesFinishing
+            expr: sum(increase(arena_matches_total[2m])) == 0
+            for: 1m
+            labels: { severity: warn }
+            annotations:
+              summary: "No match has finished for 2 minutes (bots or server stuck?)"
+              runbook: docs/runbooks/no-matches.md
+
+          - alert: PodRestarting
+            expr: increase(kube_pod_container_status_restarts_total[5m]) > 2
+            labels: { severity: warn }
+            annotations:
+              summary: "{{ $labels.namespace }}/{{ $labels.pod }} restarted {{ $value }} times in 5 minutes"
+
+          - alert: NodeMemoryLow
+            expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+            for: 2m
+            labels: { severity: warn }
+            annotations:
+              summary: "{{ $labels.instance }} has under 10% memory available"

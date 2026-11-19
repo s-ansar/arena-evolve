@@ -18,7 +18,8 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - **Earlier review findings:** all 5 resolved.
 - **Platform D0 done:** `infra/d0/` (inventory, baseline, summarise, Windows write test), `make hardware`, `docs/hardware_map.md` (spec vs measured; SSD writes ~70 MB/s traced to the QLC drive, not WSL). Tools installed: sysbench, stress-ng, fio, iperf3, numactl, pciutils, hwloc.
 - **Platform D1 done:** `infra/d1/` Vagrant + vagrant-libvirt on KVM nested in WSL2 (VirtualBox replaced; reasons in `docs/d1_linux_vms.md`). 2 VMs (server 192.168.56.10, client .11), bash provisioning, sandboxed systemd unit (exposure 1.3), key-only ssh, ufw, snapshots. `make vms-up|vms-verify|vms-down`; 11 checks pass after a fresh build (281 s). Vagrant must run from a Linux path: `up.sh` rsyncs the repo to `~/arena-d1`. VMs are halted to save RAM. `.wslconfig` now has `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` (WSL used to stop the distro ~15 s after the last session, killing VMs).
-- **SKILLS.md:** 46 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
+- **Platform D2 done:** k3d (1 server + 2 agents) pulling from a local registry `k3d-arena-registry:5050` (k3d image import raced then hung). Manifests in `infra/d2/k8s/`; graceful drain (SIGTERM via sigwait thread, /ready 503, Welcome only when all players in); rollout test 0 dropped in 10 updates vs 2 with 1 s grace. Indexed Job evolve: 52 s, same results as native; training ~4x slower than native single-thread (open question for D4). `make k8s-up|k8s-rollout-test|k8s-down`, `make lab-up`. Image user is UID 10001.
+- **SKILLS.md:** 51 boxes ticked, each with where it appears. clang-format is configured but has not been run on the code yet, so it is not ticked.
 
 ## Environment
 - WSL2 Ubuntu 26.04 (disk `D:\wsl\Ubuntu`), capped at 4 GB / 4 CPUs by `C:\Users\hp\.wslconfig`. systemd enabled, default user `hp`.
@@ -35,7 +36,7 @@ Open Claude Code in `C:\Users\hp\Documents\arena-evolve` (not `Documents\evolve`
 - The server accepts clients one by one with no timeout and plays one match at a time.
 
 ## Next steps
-1. Arena Platform phase D2, in progress. Done: graceful drain in C++ (commit 782a89d: SIGTERM finishes the match, /ready 503, MatchReport finished/DROPPED, `arena_bot --forever`), kubectl 1.34 + k3d 5.8.3 installed (`infra/d2/install_tools.sh`). To do: Dockerfile ARG ARENA_VERSION label to build server tags :1 and :2; manifests in `infra/d2/k8s/` (namespace, genome ConfigMap via `kubectl create configmap --from-file=docs/genomes`, server Deployment maxSurge 1 maxUnavailable 0, terminationGracePeriodSeconds 90, liveness /health, readiness /ready, limits, securityContext; Service tcp+udp 5555 and 8080; bot-evolved and bot-chase Deployments with --forever; Indexed Job running arena_evolve seeds); `k3d cluster create arena --agents 2 --k3s-arg "--disable=traefik@server:0"`, `k3d image import`; rollout test counting DROPPED in bot logs, with a control run at terminationGracePeriodSeconds 1. Halt the D1 VMs first (RAM). Then D3-D7. Budgets from `docs/hardware_map.md`: 4 vCPU, 3.8 GiB in WSL, disk writes ~70 MB/s.
+1. Arena Platform D3 (monitoring): manifests written in `infra/d3/` (Prometheus, Alertmanager, Grafana provisioned dashboard, node-exporter, kube-state-metrics, SLO rules), `make monitoring-up`; deploy, verify alerts fire, screenshot Grafana. Then D4-D7.
 2. Run clang-format over the code (one commit), then tick it.
 3. Possible AI follow-ups: fresh random training angles each generation (seed 4 overfitted), evolve against the best previous genome (self-play).
 

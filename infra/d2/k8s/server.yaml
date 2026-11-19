@@ -1,0 +1,67 @@
+# The match server: one Deployment (one replica; a match needs both players on the same
+# server) and one Service in front of it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arena-server
+  namespace: arena
+  labels: { app: arena-server }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: arena-server }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # start the new pod first...
+      maxUnavailable: 0  # ...and only then stop the old one
+  template:
+    metadata:
+      labels: { app: arena-server }
+    spec:
+      # On SIGTERM the server finishes the match it is playing (at most 60 s) before
+      # exiting. Kubernetes waits this long before it sends SIGKILL.
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: server
+          image: k3d-arena-registry:5050/arena-evolve/server:1
+          imagePullPolicy: IfNotPresent  # from the local k3d registry (infra/d2/up.sh)
+          args: ["5555", "8080"]
+          ports:
+            - { name: game-tcp, containerPort: 5555, protocol: TCP }
+            - { name: game-udp, containerPort: 5555, protocol: UDP }
+            - { name: metrics, containerPort: 8080, protocol: TCP }
+          resources:
+            requests: { cpu: 100m, memory: 32Mi }  # what the scheduler reserves
+            limits: { cpu: "1", memory: 128Mi }    # hard caps (CPU throttled, memory OOM-killed)
+          # Liveness: is the process healthy? If not, restart it.
+          livenessProbe:
+            httpGet: { path: /health, port: metrics }
+            periodSeconds: 5
+            failureThreshold: 3
+          # Readiness: should the Service send new players here? Turns false while draining.
+          readinessProbe:
+            httpGet: { path: /ready, port: metrics }
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            failureThreshold: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: arena-server
+  namespace: arena
+  labels: { app: arena-server }
+spec:
+  selector: { app: arena-server }
+  ports:
+    - { name: game-tcp, port: 5555, targetPort: game-tcp, protocol: TCP }
+    - { name: game-udp, port: 5555, targetPort: game-udp, protocol: UDP }
+    - { name: metrics, port: 8080, targetPort: metrics, protocol: TCP }

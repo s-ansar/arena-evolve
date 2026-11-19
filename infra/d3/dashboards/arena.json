@@ -1,0 +1,76 @@
+{
+  "uid": "arena",
+  "title": "Arena Evolve",
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Tick deadline SLI (5m, target 99.9%)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "arena:tick_on_time:ratio_rate5m" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 3,
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.999 } ] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Matches per minute",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "arena:matches:rate5m * 60" }],
+      "fieldConfig": { "defaults": { "decimals": 1 } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Server up / draining",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "up{job=\"arena\"}", "legendFormat": "up" },
+        { "refId": "B", "expr": "arena_draining", "legendFormat": "draining" }
+      ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Firing alerts",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute",
+        "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Tick interval jitter and worst lateness (last match)",
+      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "arena_last_match_tick_jitter_seconds", "legendFormat": "jitter (stddev)" },
+        { "refId": "B", "expr": "arena_last_match_lateness_max_seconds", "legendFormat": "worst lateness" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Ticks per second and late ticks per second",
+      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(arena_ticks_total[1m]))", "legendFormat": "ticks/s" },
+        { "refId": "B", "expr": "sum(rate(arena_late_ticks_total[1m]))", "legendFormat": "late ticks/s" }
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Node CPU busy",
+      "gridPos": { "x": 0, "y": 13, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A",
+        "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m]))", "legendFormat": "{{instance}}" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Pod restarts (5m)",
+      "gridPos": { "x": 12, "y": 13, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A",
+        "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[5m]))", "legendFormat": "{{namespace}}/{{pod}}" }]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+# A batch workload: evolve controllers with 4 different seeds, 2 at a time. An Indexed Job
+# gives each pod a number in JOB_COMPLETION_INDEX (0..3), used here as the seed. Phase D4
+# runs the same workload on Slurm as a job array, for comparison.
+#   kubectl -n arena apply -f infra/d2/k8s/evolve-job.yaml
+#   kubectl -n arena logs -l job-name=evolve --prefix
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: evolve
+  namespace: arena
+spec:
+  completionMode: Indexed
+  completions: 4
+  parallelism: 2
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: evolve
+          image: k3d-arena-registry:5050/arena-evolve/fitness:1
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          # 1 thread per pod: the parallelism comes from running pods side by side.
+          # A block scalar (|), because the command contains ": " which YAML would misread.
+          args:
+            - |
+              seed=$((JOB_COMPLETION_INDEX + 1))
+              /app/arena_evolve 40 1 "$seed" /tmp/genome.txt /tmp/evolution.csv \
+                | grep -E 'training took|evolved' | sed "s/^/seed $seed: /"
+          resources:
+            requests: { cpu: 500m, memory: 32Mi }
+            limits: { cpu: "1", memory: 128Mi }
+          volumeMounts:
+            - { name: scratch, mountPath: /tmp }  # the root file system is read-only
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: scratch
+          emptyDir: {}

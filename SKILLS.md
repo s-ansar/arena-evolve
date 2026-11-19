@@ -66,11 +66,11 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | VMs | KVM/QEMU with libvirt (nested in WSL2) | `infra/d1/install_host.sh`, `virsh`, `docs/d1_linux_vms.md` |
 | [x] | VMs | Vagrant (reproducible VMs) | `infra/d1/Vagrantfile` (vagrant-libvirt, fresh up in 281 s) |
 | [x] | VMs | Snapshots and NAT vs host-only networking | `infra/d1/snapshot_demo.sh`, `docs/d1_linux_vms.md` |
-| [ ] | Kubernetes | k3d or k3s cluster with kubectl | |
-| [ ] | Kubernetes | Deployments, Services and ConfigMaps | |
-| [ ] | Kubernetes | Resource requests/limits and probes | |
-| [ ] | Kubernetes | Rolling update | |
-| [ ] | Kubernetes | Jobs | |
+| [x] | Kubernetes | k3d or k3s cluster with kubectl | `infra/d2/up.sh` (3 nodes, local registry) |
+| [x] | Kubernetes | Deployments, Services and ConfigMaps | `infra/d2/k8s/server.yaml`, `bots.yaml`; genome ConfigMap |
+| [x] | Kubernetes | Resource requests/limits and probes | `infra/d2/k8s/server.yaml` (liveness /health, readiness /ready) |
+| [x] | Kubernetes | Rolling update | `infra/d2/rollout_test.sh`: 0 dropped games in 10 updates (control: 2) |
+| [x] | Kubernetes | Jobs | `infra/d2/k8s/evolve-job.yaml` (Indexed Job, 4 seeds) |
 | [ ] | Telemetry | node_exporter and kube-state-metrics | |
 | [x] | Telemetry | Custom /metrics endpoint | `src/net/metrics.cpp`, `src/net/http_server.cpp` (Prometheus text format, /health) |
 | [ ] | Telemetry | Alertmanager rules | |

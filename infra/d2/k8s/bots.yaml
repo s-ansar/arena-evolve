@@ -1,0 +1,63 @@
+# Two controller clients that play match after match against each other through the
+# arena-server Service: the evolved genome (from the arena-genomes ConfigMap) and the chase bot.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot-evolved
+  namespace: arena
+  labels: { app: bot-evolved }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bot-evolved }
+  template:
+    metadata:
+      labels: { app: bot-evolved }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: bot
+          image: k3d-arena-registry:5050/arena-evolve/bot:1
+          imagePullPolicy: IfNotPresent
+          args: ["arena-server", "5555", "--genome", "/genomes/seed1.txt", "--forever"]
+          volumeMounts:
+            - { name: genomes, mountPath: /genomes, readOnly: true }
+          resources:
+            requests: { cpu: 20m, memory: 16Mi }
+            limits: { cpu: 200m, memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        # The genome file comes from a ConfigMap, so a new genome needs no new image.
+        - name: genomes
+          configMap: { name: arena-genomes }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot-chase
+  namespace: arena
+  labels: { app: bot-chase }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bot-chase }
+  template:
+    metadata:
+      labels: { app: bot-chase }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: bot
+          image: k3d-arena-registry:5050/arena-evolve/bot:1
+          imagePullPolicy: IfNotPresent
+          args: ["arena-server", "5555", "--forever"]
+          resources:
+            requests: { cpu: 20m, memory: 16Mi }
+            limits: { cpu: 200m, memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }

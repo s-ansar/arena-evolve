@@ -1,0 +1,201 @@
+# The monitoring stack, one plain manifest per component (no Helm, so every line is visible):
+# node-exporter, kube-state-metrics, Prometheus, Alertmanager, Grafana.
+apiVersion: v1
+kind: Namespace
+metadata: { name: monitoring }
+---
+# ---- node_exporter: host metrics (CPU, memory, disk, network) from every node ----
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: { name: node-exporter, namespace: monitoring }
+spec:
+  selector: { matchLabels: { app: node-exporter } }
+  template:
+    metadata: { labels: { app: node-exporter } }
+    spec:
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:v1.8.2
+          args: ["--path.rootfs=/host"]
+          ports: [{ containerPort: 9100, name: metrics }]
+          resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 64Mi } }
+          volumeMounts: [{ name: root, mountPath: /host, readOnly: true }]
+      volumes: [{ name: root, hostPath: { path: / } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: node-exporter, namespace: monitoring }
+spec:
+  clusterIP: None  # headless: DNS returns every pod's IP
+  selector: { app: node-exporter }
+  ports: [{ port: 9100, name: metrics }]
+---
+# ---- kube-state-metrics: the state of Kubernetes objects as metrics ----
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: kube-state-metrics, namespace: monitoring }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: kube-state-metrics }
+rules:  # read-only access to the objects it reports on
+  - apiGroups: [""]
+    resources: [pods, nodes, services, endpoints, namespaces, configmaps, persistentvolumeclaims, resourcequotas]
+    verbs: [list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, daemonsets, replicasets, statefulsets]
+    verbs: [list, watch]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: kube-state-metrics }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kube-state-metrics }
+subjects: [{ kind: ServiceAccount, name: kube-state-metrics, namespace: monitoring }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: kube-state-metrics, namespace: monitoring }
+spec:
+  selector: { matchLabels: { app: kube-state-metrics } }
+  template:
+    metadata: { labels: { app: kube-state-metrics } }
+    spec:
+      serviceAccountName: kube-state-metrics
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
+          args: ["--resources=pods,deployments,daemonsets,jobs,nodes,replicasets"]
+          ports: [{ containerPort: 8080, name: metrics }]
+          resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 128Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: kube-state-metrics, namespace: monitoring }
+spec:
+  selector: { app: kube-state-metrics }
+  ports: [{ port: 8080, name: metrics }]
+---
+# ---- Prometheus ----
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: prometheus, namespace: monitoring }
+spec:
+  selector: { matchLabels: { app: prometheus } }
+  template:
+    metadata: { labels: { app: prometheus } }
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=2d
+            - --web.enable-lifecycle  # allows POST /-/reload after a config change
+          ports: [{ containerPort: 9090, name: web }]
+          resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 384Mi } }
+          readinessProbe: { httpGet: { path: /-/ready, port: web } }
+          volumeMounts:
+            - { name: config, mountPath: /etc/prometheus/prometheus.yml, subPath: prometheus.yml }
+            - { name: rules, mountPath: /etc/prometheus/rules }
+            - { name: data, mountPath: /prometheus }
+      volumes:
+        - { name: config, configMap: { name: prometheus-config } }
+        - { name: rules, configMap: { name: prometheus-rules } }
+        - { name: data, emptyDir: {} }  # lab only: metrics are lost if the pod moves
+---
+apiVersion: v1
+kind: Service
+metadata: { name: prometheus, namespace: monitoring }
+spec:
+  selector: { app: prometheus }
+  ports: [{ port: 9090, name: web }]
+---
+# ---- Alertmanager: groups alerts and routes them to receivers ----
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: alertmanager-config, namespace: monitoring }
+data:
+  alertmanager.yml: |
+    route:
+      receiver: log
+      group_by: [alertname]
+      group_wait: 10s
+      repeat_interval: 1h
+    receivers:
+      # No email or chat in the lab: alerts are read from Alertmanager's API and UI.
+      - name: log
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: alertmanager, namespace: monitoring }
+spec:
+  selector: { matchLabels: { app: alertmanager } }
+  template:
+    metadata: { labels: { app: alertmanager } }
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.27.0
+          args: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+          ports: [{ containerPort: 9093, name: web }]
+          resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 96Mi } }
+          volumeMounts: [{ name: config, mountPath: /etc/alertmanager }]
+      volumes: [{ name: config, configMap: { name: alertmanager-config } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: alertmanager, namespace: monitoring }
+spec:
+  selector: { app: alertmanager }
+  ports: [{ port: 9093, name: web }]
+---
+# ---- Grafana, with its data source and dashboard provisioned from ConfigMaps ----
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: grafana-provisioning, namespace: monitoring }
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - { name: Prometheus, uid: prometheus, type: prometheus, url: "http://prometheus.monitoring.svc:9090", isDefault: true }
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - { name: arena, folder: Arena, type: file, options: { path: /var/lib/grafana/dashboards } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: grafana, namespace: monitoring }
+spec:
+  selector: { matchLabels: { app: grafana } }
+  template:
+    metadata: { labels: { app: grafana } }
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.3.0
+          env:
+            # Lab only: anonymous read-only viewing, so screenshots need no login.
+            - { name: GF_AUTH_ANONYMOUS_ENABLED, value: "true" }
+            - { name: GF_AUTH_ANONYMOUS_ORG_ROLE, value: Viewer }
+            - { name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH, value: /var/lib/grafana/dashboards/arena.json }
+          ports: [{ containerPort: 3000, name: web }]
+          resources: { requests: { cpu: 20m, memory: 96Mi }, limits: { memory: 256Mi } }
+          volumeMounts:
+            - { name: provisioning, mountPath: /etc/grafana/provisioning/datasources/datasource.yml, subPath: datasource.yml }
+            - { name: provisioning, mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml, subPath: dashboards.yml }
+            - { name: dashboards, mountPath: /var/lib/grafana/dashboards }
+      volumes:
+        - { name: provisioning, configMap: { name: grafana-provisioning } }
+        - { name: dashboards, configMap: { name: grafana-dashboards } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: grafana, namespace: monitoring }
+spec:
+  selector: { app: grafana }
+  ports: [{ port: 3000, name: web }]

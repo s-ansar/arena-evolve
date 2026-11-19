@@ -25,9 +25,15 @@ RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 # The same Ubuntu release as the build stage, so the C++ runtime library (libstdc++, already
 # in the base image) matches the compiler. Programs run as an unprivileged user, not root.
 FROM ubuntu:24.04 AS runtime
-RUN useradd --system --no-create-home arena
+# A version label, so the same code can be built as distinct image versions (used to test
+# Kubernetes rolling updates):  docker build --build-arg ARENA_VERSION=2 ...
+ARG ARENA_VERSION=dev
+LABEL org.opencontainers.image.version=$ARENA_VERSION
+# A fixed numeric UID: Kubernetes can only enforce runAsNonRoot when the image user is a
+# number, not a name.
+RUN useradd --system --uid 10001 --no-create-home arena
 WORKDIR /app
-USER arena
+USER 10001
 
 # ---- Final images ----
 FROM runtime AS server
