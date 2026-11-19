@@ -57,8 +57,8 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Linux | ufw firewall | `infra/d1/provision/*.sh` (default deny, lab subnet only) |
 | [ ] | Linux | ss, ip and tcpdump | |
 | [x] | Operations | Docker Compose | `compose.yaml` (server + two bots); results in README |
-| [ ] | Operations | Prometheus metrics | |
-| [ ] | Operations | Grafana dashboard | |
+| [x] | Operations | Prometheus metrics | `infra/d3/k8s/prometheus-config.yaml` scraping `/metrics` |
+| [x] | Operations | Grafana dashboard | `infra/d3/dashboards/arena.json` (provisioned), `docs/images/grafana_dashboard.jpg` |
 | [ ] | Operations | Deployment on an Ubuntu host (EC2 or Raspberry Pi) | |
 | [ ] | Testing | Fuzzing with libFuzzer | |
 | [ ] | Optional | TLS (OpenSSL) | |
@@ -71,10 +71,10 @@ Tick a box only when the skill is genuinely used in this repo and you can explai
 | [x] | Kubernetes | Resource requests/limits and probes | `infra/d2/k8s/server.yaml` (liveness /health, readiness /ready) |
 | [x] | Kubernetes | Rolling update | `infra/d2/rollout_test.sh`: 0 dropped games in 10 updates (control: 2) |
 | [x] | Kubernetes | Jobs | `infra/d2/k8s/evolve-job.yaml` (Indexed Job, 4 seeds) |
-| [ ] | Telemetry | node_exporter and kube-state-metrics | |
+| [x] | Telemetry | node_exporter and kube-state-metrics | `infra/d3/k8s/monitoring.yaml` |
 | [x] | Telemetry | Custom /metrics endpoint | `src/net/metrics.cpp`, `src/net/http_server.cpp` (Prometheus text format, /health) |
-| [ ] | Telemetry | Alertmanager rules | |
-| [ ] | Telemetry | SLO on a measured service level | |
+| [x] | Telemetry | Alertmanager rules | `infra/d3/k8s/prometheus-config.yaml`; fired by `infra/d3/verify.sh` |
+| [x] | Telemetry | SLO on a measured service level | tick-deadline SLI/SLO, `docs/d3_telemetry.md` |
 | [ ] | Telemetry | Loki logs (optional) | |
 | [ ] | Telemetry | OpenTelemetry tracing (optional) | |
 | [ ] | HPC | Slurm cluster (slurmctld, slurmd, munge) | |

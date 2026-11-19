@@ -20,7 +20,7 @@ Inspired by the Arduino sumo robots built with the University of Birmingham Robo
 | Platform | Hardware map and benchmarks (CPU, memory, disk, network) | Done ([docs/hardware_map.md](docs/hardware_map.md)) |
 | Platform | Ubuntu VMs with Vagrant (KVM), systemd service, hardened ssh | Done ([docs/d1_linux_vms.md](docs/d1_linux_vms.md)) |
 | Platform | Kubernetes (k3d) cluster running the server, rolling update without dropped games | Done ([docs/d2_kubernetes.md](docs/d2_kubernetes.md)) |
-| Platform | Prometheus, Grafana and alerts for tick latency and node health | Planned |
+| Platform | Prometheus, Grafana and alerts for tick latency and node health | Done ([docs/d3_telemetry.md](docs/d3_telemetry.md)) |
 | Platform | Slurm cluster running neuroevolution as job arrays, scaling study | Planned |
 | Platform | Distributed object storage with a node-failure test | Planned |
 | Platform | Game days, runbooks and a performance report | Planned |
